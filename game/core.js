@@ -19,8 +19,22 @@ export const player = {
     _damageBuffTurns: 0,
     _damageReduction: 0,
     _buffTurns: 0,
-    _dodgeChance: 0
+    _dodgeChance: 0,
+    _critBuff: 0,
+    _extraAttacks: 0,
+    _reflectNext: false,
+    _lastDamage: 0
 };
+
+const RANKS = [
+    {name:"Dormant", hp:100, essence:100, stamina:100, xp:200},
+    {name:"Awakened", hp:150, essence:150, stamina:150, xp:400},
+    {name:"Ascended", hp:200, essence:200, stamina:200, xp:800},
+    {name:"Transcendant", hp:250, essence:250, stamina:250, xp:1200},
+    {name:"Supreme", hp:300, essence:300, stamina:300, xp:1500},
+    {name:"Sacred", hp:350, essence:350, stamina:350, xp:2000},
+    {name:"Divine", hp:400, essence:400, stamina:400, xp:0}
+];
 
 export function logAction(message){
     const log = document.getElementById("game-output");
@@ -55,21 +69,20 @@ export function updateStatsUI(currentEnemy = null){
 }
 
 export function rankUp(){
-    const ranks = [
-        {name:"Dormant", hp:100, essence:100, stamina:100, xp:200},
-        {name:"Awakened", hp:150, essence:150, stamina:150, xp:400},
-        {name:"Ascended", hp:200, essence:200, stamina:200, xp:800},
-        {name:"Transcendant", hp:250, essence:250, stamina:250, xp:1200},
-        {name:"Supreme", hp:300, essence:300, stamina:300, xp:1500},
-        {name:"Sacred", hp:350, essence:350, stamina:350, xp:2000},
-        {name:"Divine", hp:400, essence:400, stamina:400, xp:0}
-    ];
-    if(player.rank<ranks.length){
+    while(player.rank<RANKS.length && player.xp >= RANKS[player.rank-1].xp){
         player.rank++;
-        const r = ranks[player.rank-1];
+        const r = RANKS[player.rank-1];
         player.maxHp = r.hp; player.hp=r.hp;
         player.maxEssence=r.essence; player.essence=r.essence;
         player.maxStamina=r.stamina; player.stamina=r.stamina;
         logAction(`You have ranked up to ${r.name}!`);
+    }
+}
+
+export function attemptTrueName(){
+    const chance = 0.01 + 0.0025*(player.rank-1);
+    if(Math.random()<chance){
+        player.trueName = "True Name Unlocked";
+        logAction(`Congratulations! You discovered your True Name: ${player.trueName}`);
     }
 }
