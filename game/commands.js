@@ -1,25 +1,29 @@
-import * as movement from './movement.js';
-import { attackEnemy } from './combat.js';
-import { logAction } from './core.js';
+// commands.js
+import { move, seek, meditate, rest, hide } from './movement.js';
+import { attackEnemy, ASPECT_ABILITIES, currentEnemy } from './combat.js';
+import { player, logAction } from './core.js';
+import { updateStatsUI } from './core.js';
 
-const input = document.getElementById("command-input");
-
-input.addEventListener("keydown", (e)=>{
-    if(e.key!=="Enter") return;
-    const cmd = e.target.value.trim().toLowerCase();
-    e.target.value="";
-    
-    if(cmd.startsWith("move ")) movement.move(cmd.split(" ")[1]);
-    else if(cmd.startsWith("seek")) {
-        const rank = parseInt(cmd.split(" ")[1])||1;
-        movement.seek(rank);
+export function handleCommand(input){
+    const [cmd, ...args]=input.toLowerCase().split(" ");
+    switch(cmd){
+        case "help":
+            logAction("Commands: move <dir>, seek, meditate, rest, hide, attack, ability <name>");
+            break;
+        case "move": move(args[0]||"forward"); break;
+        case "seek": seek(); break;
+        case "meditate": meditate(); break;
+        case "rest": rest(); break;
+        case "hide": hide(); break;
+        case "attack": attackEnemy(); break;
+        case "ability":
+            if(!player.aspect)return logAction("Choose an aspect first!");
+            const abilityName=args.join(" ");
+            const ability=ASPECT_ABILITIES[player.aspect].find(a=>a.name.toLowerCase()===abilityName);
+            if(!ability) return logAction("Ability not found!");
+            ability.effect();
+            updateStatsUI(currentEnemy);
+            break;
+        default: logAction("Unknown command. Type 'help'.");
     }
-    else if(cmd==="rest") movement.rest();
-    else if(cmd==="meditate") movement.meditate();
-    else if(cmd==="attack") attackEnemy();
-    else logAction(`Unknown command: ${cmd}`);
-});
-else if(cmd.startsWith("use ")) {
-    const abilityName = cmd.slice(4);
-    useAbility(abilityName);
 }
