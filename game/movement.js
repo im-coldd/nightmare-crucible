@@ -1,8 +1,6 @@
-// movement.js
-import { player, logAction, updateStatsUI } from './core.js';
+import { player, logAction } from './core.js';
 import { generateEnemy } from './enemies.js';
 import { attackEnemy } from './combat.js';
-import { generateMemory } from './memories.js';
 
 export function move(direction){
     const distance=Math.floor(Math.random()*750)+750;
@@ -24,11 +22,12 @@ export function meditate(){
     player.essence=Math.min(player.maxEssence, player.essence+essenceGain);
     player.xp+=xpGain;
     logAction(`Meditated for ${duration} minutes, gained ${essenceGain} essence & ${xpGain} XP`);
+    rankUp();
     updateStatsUI();
 }
 
 export function rest(){
-    const duration=Math.floor(Math.random()*90)+30; // minutes
+    const duration=Math.floor(Math.random()*90)+30;
     const hpGain=Math.floor(20+duration*0.25);
     const staminaGain=Math.floor(20+duration*0.25);
     player.hp=Math.min(player.maxHp,player.hp+hpGain);
