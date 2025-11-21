@@ -1,5 +1,7 @@
-// core.js — game state, ranks, levelup, UI sync
+// core.js — game state, ranks, levelup, UI sync, persistent save/load
 import { updatePlayerStatus, showEnemyStatus } from './ui.js';
+
+export const SAVE_KEY = 'nightmare-crucible-v1';
 
 export const RANKS = [
   { name: 'Dormant', hp:100, essence:100, stamina:100, xpToNext:200 },
@@ -11,10 +13,10 @@ export const RANKS = [
   { name: 'Divine', hp:400, essence:400, stamina:400, xpToNext: Infinity }
 ];
 
-// initial player set to Dormant
+// initial player
 export const player = {
   name: 'Sleeper',
-  tier: 0,         // index in RANKS
+  tier: 0,
   xp: 0,
   health: RANKS[0].hp,
   maxHealth: RANKS[0].hp,
@@ -22,19 +24,28 @@ export const player = {
   maxEssence: RANKS[0].essence,
   stamina: RANKS[0].stamina,
   maxStamina: RANKS[0].stamina,
-  baseDamageBonus: 0,   // additional flat bonus (e.g., from memories)
-  critChanceFlat: 0.01, // base 1%
+  baseDamageBonus: 0,
+  critChanceFlat: 0.01,
   aspect: null,
   trueName: null,
   inventory: [],
   x: 0, y: 0,
   travelDistance: 0,
-  trueNameAccumulatedChance: 0.0 // increases by .25% per battle as doc
+  trueNameAccumulatedChance: 0.0,
+  // runtime flags (transient; saved too)
+  damageBoost: 1,
+  dodgeReady: false,
+  domainReady: false,
+  avatarReady: false,
+  doubleAttackReady: false,
+  damageReduction: 0,
+  nextAttackBuffed: false,
+  _despairTurns: 0,
+  _reinforceTurns: 0
 };
 
 export let currentEnemy = null;
 
-// XP thresholds per RANKS array
 export function xpToNextTier(tier) {
   const r = RANKS[tier];
   return r ? r.xpToNext : Infinity;
@@ -61,21 +72,101 @@ export function updateUI() {
   } else {
     showEnemyStatus(null);
   }
+  // save small snapshot each UI update (throttle not implemented for simplicity)
+  saveGame();
 }
 
 export function gainXP(amount) {
   player.xp += amount;
+  saveGame();
 }
 
 export function checkLevelUp() {
-  // while loop supports multi-level gains
+  let leveled = false;
   while (player.tier < RANKS.length - 1 && player.xp >= xpToNextTier(player.tier)) {
     const needed = xpToNextTier(player.tier);
     player.xp -= needed;
     player.tier += 1;
-    // on rank up: increase base damage by +10 per rank (per doc)
     player.baseDamageBonus += 10;
-    // set stats to new max
     updatePlayerStatsForTier(player.tier);
+    leveled = true;
+  }
+  if (leveled) {
+    // clear some runtime flags and restore HP/Essence on tier-up
+    player.health = player.maxHealth;
+    player.essence = player.maxEssence;
+    player.stamina = player.maxStamina;
+    updateUI();
+  }
+  saveGame();
+}
+
+// ---------------------- Persistence ----------------------
+export function saveGame() {
+  try {
+    const out = {
+      v:'1',
+      player: {
+        name: player.name,
+        tier: player.tier,
+        xp: player.xp,
+        health: player.health,
+        maxHealth: player.maxHealth,
+        essence: player.essence,
+        maxEssence: player.maxEssence,
+        stamina: player.stamina,
+        maxStamina: player.maxStamina,
+        baseDamageBonus: player.baseDamageBonus,
+        critChanceFlat: player.critChanceFlat,
+        aspect: player.aspect,
+        trueName: player.trueName,
+        inventory: player.inventory,
+        x: player.x,
+        y: player.y,
+        travelDistance: player.travelDistance,
+        trueNameAccumulatedChance: player.trueNameAccumulatedChance
+      },
+      timestamp: Date.now()
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(out));
+  } catch (err) {
+    // ignore save errors
+    // console.warn('Save failed', err);
   }
 }
+
+export function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || !data.player) return false;
+    const p = data.player;
+    player.name = p.name ?? player.name;
+    player.tier = p.tier ?? player.tier;
+    player.xp = p.xp ?? player.xp;
+    player.health = p.health ?? player.health;
+    player.maxHealth = p.maxHealth ?? player.maxHealth;
+    player.essence = p.essence ?? player.essence;
+    player.maxEssence = p.maxEssence ?? player.maxEssence;
+    player.stamina = p.stamina ?? player.stamina;
+    player.maxStamina = p.maxStamina ?? player.maxStamina;
+    player.baseDamageBonus = p.baseDamageBonus ?? player.baseDamageBonus;
+    player.critChanceFlat = p.critChanceFlat ?? player.critChanceFlat;
+    player.aspect = p.aspect ?? player.aspect;
+    player.trueName = p.trueName ?? player.trueName;
+    player.inventory = p.inventory ?? player.inventory;
+    player.x = p.x ?? player.x;
+    player.y = p.y ?? player.y;
+    player.travelDistance = p.travelDistance ?? player.travelDistance;
+    player.trueNameAccumulatedChance = p.trueNameAccumulatedChance ?? player.trueNameAccumulatedChance;
+    // ensure stats consistent with tier
+    updatePlayerStatsForTier(player.tier);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+// on module load, attempt to load
+loadGame();
