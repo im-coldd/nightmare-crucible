@@ -1,67 +1,54 @@
-// movement.js — travel, seek, rest, meditate, hide
-import { player } from './core.js';
-import { addToOutput } from './ui.js';
+// movement.js
+import * as Core from './core.js';
 import { generateSeekEnemy } from './enemies.js';
-import * as core from './core.js';
-
-const MOVEMENT_VECTORS = {
-  north:{dx:0,dy:1}, south:{dx:0,dy:-1}, east:{dx:1,dy:0}, west:{dx:-1,dy:0},
-  northeast:{dx:1,dy:1}, northwest:{dx:-1,dy:1}, southeast:{dx:1,dy:-1}, southwest:{dx:-1,dy:-1}
-};
-
-function travelSpawnChance(distanceMeters) {
-  if (distanceMeters < 750) return 0.0;
-  const over = Math.max(0, distanceMeters - 750);
-  const increments = Math.floor(over / 50);
-  return 0.175 + increments * 0.0015;
-}
-
-function meditateSpawnChance(minutes) {
-  if (minutes < 30) return 0.0;
-  const extra = minutes - 30;
-  return 0.175 + extra * 0.0015;
-}
+import { updateUI } from './core.js';
 
 export function move(direction) {
-  if (!MOVEMENT_VECTORS[direction]) { addToOutput('Unknown direction.'); return; }
-  if (core.currentEnemy) { addToOutput('You must defeat or hide from the enemy before moving.'); return; }
-  const MIN = 750, MAX = 1500;
-  const distance = Math.floor(Math.random()*(MAX-MIN+1)) + MIN;
-  player.x += MOVEMENT_VECTORS[direction].dx * distance;
-  player.y += MOVEMENT_VECTORS[direction].dy * distance;
-  player.travelDistance += distance;
-  addToOutput(`You travel ${direction} for ${distance} meters. Current travel: ${player.travelDistance}m`);
-  const spawnChance = travelSpawnChance(player.travelDistance);
-  if (Math.random() < spawnChance) {
-    const enemy = generateSeekEnemy();
-    core.currentEnemy = enemy;
-    addToOutput(`A gruesome ${enemy.name} bursts from the Dream-Space! Combat initiated.`);
-    core.updateUI();
-  } else {
-    addToOutput('The path remains eerily quiet... for now.');
-    core.updateUI();
+  if (Core.currentEnemy) {
+    return "You cannot move while in combat!";
   }
+
+  switch (direction) {
+    case 'north': Core.player.y++; break;
+    case 'south': Core.player.y--; break;
+    case 'east':  Core.player.x++; break;
+    case 'west':  Core.player.x--; break;
+    default: return "Unknown direction.";
+  }
+
+  Core.player.travelDistance++;
+  Core.player.trueNameAccumulatedChance += 0.25; // 0.25% buildup
+
+  updateUI();
+  return `You move ${direction}.`;
 }
 
 export function seek() {
-  if (core.currentEnemy) { addToOutput('You are already in combat.'); return; }
-  const enemy = generateSeekEnemy();
-  core.currentEnemy = enemy;
-  addToOutput(`You seek and force an encounter: ${enemy.name} appears!`);
-  core.updateUI();
+  if (Core.currentEnemy) {
+    return "You are already in combat!";
+  }
+
+  const enemy = generateSeekEnemy(Core.player.tier);
+  Core.currentEnemy = enemy;
+
+  updateUI();
+  return `You sense a presence... **${enemy.name}** emerges!`;
 }
 
-export function rest(minutes) {
-  if (core.currentEnemy) { addToOutput('You cannot rest while a Nightmare Creature is present!'); return; }
-  minutes = parseInt(minutes,10);
-  if (isNaN(minutes) || minutes < 30 || minutes > 120) { addToOutput('Rest must be 30-120 minutes.'); return; }
-  const recoveryIncrease = (minutes - 30) * 0.25;
-  const hpRecovered = Math.round(50 + recoveryIncrease);
-  const staminaRecovered = Math.round(50 + recoveryIncrease);
-  player.health = Math.min(player.maxHealth, player.health + hpRecovered);
-  player.stamina = Math.min(player.maxStamina, player.stamina + staminaRecovered);
-  addToOutput(`You rested for ${minutes} minutes. Recovered ${hpRecovered} HP and ${staminaRecovered} Stamina.`);
-  const spawnChance = meditateSpawnChance(minutes);
+export function meditate() {
+  if (Core.currentEnemy) {
+    return "You cannot meditate in combat.";
+  }
+
+  const healed = Math.min(25, Core.player.maxHealth - Core.player.health);
+  Core.player.health += healed;
+
+  Core.player.essence = Math.min(Core.player.maxEssence, Core.player.essence + 20);
+  Core.player.stamina = Math.min(Core.player.maxStamina, Core.player.stamina + 20);
+
+  updateUI();
+  return `You meditate and recover ${healed} HP, 20 Essence, and 20 Stamina.`;
+}
   if (Math.random() < spawnChance) {
     const enemy = generateSeekEnemy();
     core.currentEnemy = enemy;
