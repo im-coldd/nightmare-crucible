@@ -19,3 +19,7 @@ input.addEventListener("keydown", (e)=>{
     else if(cmd==="attack") attackEnemy();
     else logAction(`Unknown command: ${cmd}`);
 });
+else if(cmd.startsWith("use ")) {
+    const abilityName = cmd.slice(4);
+    useAbility(abilityName);
+}
