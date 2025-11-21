@@ -1,34 +1,49 @@
-import { player, updateStatsUI, logAction } from './core.js';
-import { buildEnemyFromRank } from './enemies.js';
-import { attackEnemy, spawnEnemy as combatSpawn } from './combat.js';
+// movement.js
+import { player, logAction, updateStatsUI } from './core.js';
+import { generateEnemy } from './enemies.js';
+import { attackEnemy } from './combat.js';
+import { generateMemory } from './memories.js';
 
-export function move(direction) {
-    const distance = Math.floor(Math.random()*750)+750; // 750-1500m
-    logAction(`${player.name} moves ${direction} ${distance} meters.`);
+export function move(direction){
+    const distance=Math.floor(Math.random()*750)+750;
+    logAction(`${player.name} travels ${distance} meters ${direction}.`);
+    attemptSpawn(distance);
 }
 
-export function seek(rank=1) {
-    const enemy = buildEnemyFromRank(rank);
-    combatSpawn(rank);
-    updateStatsUI(enemy);
+export function seek(){
+    if(currentEnemy) return logAction("Already in combat!");
+    currentEnemy = generateEnemy(Math.floor(Math.random()*6));
+    logAction(`You encounter ${currentEnemy.name} (Tier ${currentEnemy.tier})!`);
+    updateStatsUI(currentEnemy);
 }
 
-export function rest() {
-    const time = Math.floor(Math.random()*90)+30; // 30-120 minutes
-    const hpRecovered = Math.min(player.maxHp - player.hp, 20 + time*0.25);
-    const staminaRecovered = Math.min(player.maxStamina - player.stamina, 20 + time*0.25);
-    player.hp += hpRecovered;
-    player.stamina += staminaRecovered;
-    logAction(`${player.name} rests for ${time} minutes and recovers ${hpRecovered.toFixed(0)} HP and ${staminaRecovered.toFixed(0)} stamina.`);
+export function meditate(){
+    const duration=Math.floor(Math.random()*90)+30; // minutes
+    const essenceGain=Math.floor(20+duration*0.25);
+    const xpGain=Math.floor(20+player.rank*10);
+    player.essence=Math.min(player.maxEssence, player.essence+essenceGain);
+    player.xp+=xpGain;
+    logAction(`Meditated for ${duration} minutes, gained ${essenceGain} essence & ${xpGain} XP`);
     updateStatsUI();
 }
 
-export function meditate() {
-    const time = Math.floor(Math.random()*90)+30;
-    const essenceRecovered = Math.min(player.maxEssence - player.essence, 20 + time*0.25);
-    const xpGained = 20 + (player.rank-1)*10;
-    player.essence += essenceRecovered;
-    player.xp += xpGained;
-    logAction(`${player.name} meditates for ${time} minutes, recovers ${essenceRecovered.toFixed(0)} Essence and gains ${xpGained} XP.`);
+export function rest(){
+    const duration=Math.floor(Math.random()*90)+30; // minutes
+    const hpGain=Math.floor(20+duration*0.25);
+    const staminaGain=Math.floor(20+duration*0.25);
+    player.hp=Math.min(player.maxHp,player.hp+hpGain);
+    player.stamina=Math.min(player.maxStamina,player.stamina+staminaGain);
+    logAction(`Rested for ${duration} minutes, recovered ${hpGain} HP & ${staminaGain} Stamina`);
     updateStatsUI();
+}
+
+export function hide(){
+    const chance=0.75-(player.rank-1)*0.05;
+    const success=Math.random()<chance;
+    logAction(success ? "Hide successful!" : "Hide failed!");
+}
+
+function attemptSpawn(distance){
+    const baseChance=0.175+(distance/50)*0.0015;
+    if(Math.random()<baseChance) seek();
 }
