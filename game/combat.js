@@ -73,3 +73,37 @@ export function useAbility(name) {
     ability.effect();
     updateStatsUI(currentEnemy);
 }
+export function attackEnemy() {
+    if(!currentEnemy) return logAction("No enemy to attack.");
+
+    let dmg = Math.floor(Math.random()*(18-7+1))+7;
+
+    // Apply buffs/debuffs
+    if(player._damageMultiplier) dmg *= player._damageMultiplier;
+    if(player._damageBuff) dmg += player._damageBuff;
+    if(currentEnemy._damageReduction) dmg *= 1-currentEnemy._damageReduction;
+
+    const staminaDrain = dmg-2;
+    player.stamina -= staminaDrain;
+    currentEnemy.health -= dmg;
+
+    logAction(`${player.name} hits ${currentEnemy.name} for ${dmg.toFixed(0)} damage (-${staminaDrain} stamina).`);
+
+    // Decrease buff turns
+    if(player._damageBuffTurns) player._damageBuffTurns--;
+    if(player._buffTurns) player._buffTurns--;
+    if(player._damageBuffTurns===0) player._damageMultiplier=1;
+    if(player._buffTurns===0) player._damageReduction=0;
+
+    // Enemy counterattack if alive
+    if(currentEnemy.health>0) enemyAction(currentEnemy);
+    else {
+        logAction(`${currentEnemy.name} is defeated!`);
+        player.xp += currentEnemy.xp;
+        currentEnemy=null;
+        updateStatsUI();
+        if(player.xp>=calcNextRankXP(player.rank)) rankUp();
+    }
+
+    updateStatsUI(currentEnemy);
+}
