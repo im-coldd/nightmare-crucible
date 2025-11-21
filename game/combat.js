@@ -60,3 +60,16 @@ function calcNextRankXP(rank) {
 }
 
 export { currentEnemy };
+import { player, updateStatsUI, logAction } from './core.js';
+import { currentEnemy } from './combat.js';
+import { ASPECT_ABILITIES } from './abilities.js';
+
+export function useAbility(name) {
+    const ability = player.abilities.find(a=>a.name.toLowerCase()===name.toLowerCase());
+    if(!ability) return logAction("Ability not found or not unlocked!");
+    if(player.essence < ability.essenceCost) return logAction("Not enough essence!");
+
+    // Execute ability effect
+    ability.effect();
+    updateStatsUI(currentEnemy);
+}
