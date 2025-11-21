@@ -1,67 +1,40 @@
-// ui.js — UI helpers and command input wiring (no gameplay logic here)
+// ui.js
+import { handleCommand } from './commands.js';
+import * as Core from './core.js';
 
-const outputBox = document.getElementById('game-output');
-const playerStatusBox = document.getElementById('player-status');
-const enemyStatusBox = document.getElementById('enemy-status');
-const inputBox = document.getElementById('command-input');
-
-export function addToOutput(text, style = '') {
-  const p = document.createElement('p');
-  p.textContent = text;
-  p.className = 'py-0.5 terminal-font ' + style;
-  outputBox.appendChild(p);
-  outputBox.scrollTop = outputBox.scrollHeight;
-}
-
-export function clearOutput() {
-  outputBox.textContent = '';
-}
+const output = document.getElementById("game-output");
+const input = document.getElementById("command-input");
 
 export function updatePlayerStatus(text) {
-  playerStatusBox.textContent = text;
+  document.getElementById("player-status").innerText = text;
 }
 
 export function showEnemyStatus(text) {
+  const box = document.getElementById("enemy-status");
   if (!text) {
-    enemyStatusBox.classList.add('hidden');
-    enemyStatusBox.textContent = '';
-  } else {
-    enemyStatusBox.classList.remove('hidden');
-    enemyStatusBox.textContent = text;
+    box.classList.add("hidden");
+    return;
   }
+  box.classList.remove("hidden");
+  box.innerText = text;
 }
 
-// registration function: commands module calls this to receive input
-let commandHandler = null;
-export function registerCommandHandler(fn) {
-  commandHandler = fn;
+export function print(msg) {
+  output.innerHTML += `<div>${msg}</div>`;
+  output.scrollTop = output.scrollHeight;
 }
 
-inputBox.addEventListener('keydown', (e) => {
-  if (e.key !== 'Enter') return;
-  const raw = inputBox.value.trim();
-  inputBox.value = '';
-  if (!raw) return;
-  addToOutput('>> ' + raw, 'text-green-300');
-  if (commandHandler) commandHandler(raw.toLowerCase());
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    const cmd = input.value;
+    input.value = "";
+    const result = handleCommand(cmd);
+    if (result) print(result);
+  }
 });
 
-// --- Intro (Gritty & Ominous) ---
-const introText = `*** The Nightmare Crucible ***
-
-You awaken to darkness.
-
-A chill clings to your skin as the Dream Realm settles around you—endless, silent, watching.
-Shadows breathe at the edges of your vision, waiting to see if you will stand… or break.
-
-You are a Sleeper.
-Tierless. Unknown. Unclaimed.
-
-Somewhere deep within you, a spark stirs—faint, fragile, hungry.
-
-Choose an Aspect, and the nightmare will shape itself around your path.
-Fail to choose, and the Realm will choose for you.
-
+print("The Nightmare Crucible<br>Type 'help' to begin.");
+Core.updateUI();
 Type 'choose <aspect>' to begin. (shadow, sun, mirror, superhuman, perfection, seer)
 
 Only 1% of Sleepers ever awaken with a True Name.
