@@ -1,67 +1,44 @@
-// combat.js — attacks, enemy AI behaviors, defeat handling
-import * as core from './core.js';
-import { addToOutput } from './ui.js';
-import * as memories from './memories.js';
+// combat.js
+import * as Core from './core.js';
+import { updateUI, checkLevelUp, gainXP } from './core.js';
 
-const player = core.player;
-
-function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
-
-export function computeMeleeRange() {
-  const min = 7 + player.tier*10;
-  const max = 18 + player.tier*10;
-  return {min,max};
-}
-
-function playerDamageMultiplier() {
-  let mul = 1.0;
-  if (player._despairTurns && player._despairTurns > 0) mul *= 0.85;
-  if (player.nextAttackBuffed) { mul *= 2; player.nextAttackBuffed = false; }
-  if (player.damageBoost) { mul *= player.damageBoost; player.damageBoost = 1; }
-  return mul;
-}
-
-function enemyIncomingMultiplier(e) {
-  return (e._reinforceTurns && e._reinforceTurns > 0) ? 0.85 : 1.0;
-}
-
-export function performMeleeAttack() {
-  if (!core.currentEnemy) { addToOutput('No enemy to attack.'); return; }
-  const e = core.currentEnemy;
-  const {min,max} = computeMeleeRange();
-  let damage = randInt(min,max);
-  const isCrit = Math.random() < player.critChanceFlat;
-  if (isCrit) damage = Math.round(damage * 1.75);
-  const staminaDrain = Math.max(1, damage - 2);
-  player.stamina = Math.max(0, player.stamina - staminaDrain);
-  if (player.stamina <= 0) {
-    damage = Math.round(damage * 0.65);
-    addToOutput('You are exhausted — damage reduced by 35%.');
+export function attack() {
+  if (!Core.currentEnemy) {
+    return "There is no enemy to attack.";
   }
-  damage += player.baseDamageBonus;
-  const mul = playerDamageMultiplier();
-  damage = Math.round(damage * mul);
-  damage = Math.round(damage * enemyIncomingMultiplier(e));
-  e.health -= damage;
-  addToOutput((isCrit? '*** CRITICAL HIT! *** ':'') + `You hit for ${damage} damage. (Stamina -${staminaDrain})`);
-  const essenceDrain = Math.max(0, damage - 2);
-  if (player.essence >= essenceDrain) player.essence = Math.max(0, player.essence - essenceDrain);
-  else {
-    const used = player.essence;
-    player.essence = 0;
-    addToOutput(`You lacked Essence; used ${used} instead of ${essenceDrain}.`);
-  }
-  if (e.health <= 0) handleEnemyDefeat();
-  else enemyTurn();
-  core.updateUI();
-}
 
-export function performRangedAttack() {
-  if (!core.currentEnemy) { addToOutput('No enemy to attack.'); return; }
-  const e = core.currentEnemy;
-  const {min,max} = computeMeleeRange();
-  let damage = randInt(min,max);
-  const isCrit = Math.random() < player.critChanceFlat;
+  const dmg = 10 + Core.player.baseDamageBonus;
+  Core.currentEnemy.health -= dmg;
+
+  if (Core.currentEnemy.health <= 0) {
+    const reward = Core.currentEnemy.xp || 50;
+    gainXP(reward);
+
+    Core.currentEnemy = null;
+    checkLevelUp();
+    updateUI();
+
+    return `You dealt ${dmg} damage and defeated the enemy! You gained ${reward} XP.`;
+  }
+
+  // Enemy counterattack
+  const enemyDmg = Core.currentEnemy.minDamage +
+                   Math.floor(Math.random() * (Core.currentEnemy.maxDamage - Core.currentEnemy.minDamage + 1));
+
+  Core.player.health -= enemyDmg;
+
+  if (Core.player.health <= 0) {
+    Core.player.health = Core.player.maxHealth;
+    Core.player.x = 0;
+    Core.player.y = 0;
+    Core.currentEnemy = null;
+    updateUI();
+    return "You were defeated and awaken back at the start...";
+  }
+
+  updateUI();
+  return `You dealt ${dmg} damage. Enemy struck back for ${enemyDmg}.`;
+}
   if (isCrit) damage = Math.round(damage * 1.75);
   damage += player.baseDamageBonus;
   addToOutput((isCrit? '*** CRITICAL HIT! *** ':'') + `You fire a ranged shot for ${damage} damage.`);
