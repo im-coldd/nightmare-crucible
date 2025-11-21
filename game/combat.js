@@ -3,7 +3,9 @@ import * as Core from './core.js';
 import { addToOutput, animateTextFrames } from './ui.js';
 import * as Memories from './memories.js';
 
-const player = Core.player;
+function getPlayer() {
+    return Core.player;
+}
 
 function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
 
