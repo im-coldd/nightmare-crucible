@@ -1,4 +1,4 @@
-// core.js — game state, ranks, levelup, UI sync, persistence
+// core.js — game state, ranks, levelup, UI sync, persistence (updated)
 import { updatePlayerStatus, showEnemyStatus } from './ui.js';
 
 export const SAVE_KEY = 'nightmare-crucible-v1';
@@ -24,12 +24,13 @@ export const player = {
   stamina: RANKS[0].stamina,
   maxStamina: RANKS[0].stamina,
   baseDamageBonus: 0,
-  critChanceFlat: 0.01,
+  critChanceFlat: 0.01,      // base crit chance
+  critMultiplier: 1.75,     // crit damage multiplier
+  evasionFlat: 0.02,        // base 2% evade
   aspect: null,
   trueName: null,
   inventory: [],
-  x: 0,
-  y: 0,
+  x: 0, y: 0,
   travelDistance: 0,
   trueNameAccumulatedChance: 0.0,
   // runtime flags
@@ -41,7 +42,11 @@ export const player = {
   damageReduction: 0,
   nextAttackBuffed: false,
   _despairTurns: 0,
-  _reinforceTurns: 0
+  _reinforceTurns: 0,
+  // cooldowns: { abilityKey: turnsRemaining }
+  cooldowns: {},
+  // zone/biome
+  zone: 'Wastes' // default starting zone
 };
 
 export let currentEnemy = null;
@@ -66,14 +71,14 @@ export function updateUI() {
   const tierName = RANKS[player.tier] ? RANKS[player.tier].name : `T:${player.tier}`;
   const aspectDisplay = player.aspect ? ` | Aspect: ${player.aspect}` : '';
   const trueNameDisplay = (player.trueName && player.trueName !== 'Veiled Name') ? ` | True Name: ${player.trueName}` : '';
-  const status = `Runes: [${tierName} | T:${player.tier} | XP:${player.xp}] HP: ${player.health}/${player.maxHealth} | Essence: ${player.essence}/${player.maxEssence} | Stamina: ${player.stamina}/${player.maxStamina}${aspectDisplay}${trueNameDisplay}`;
+  const cooldownCount = Object.keys(player.cooldowns).length;
+  const status = `Runes: [${tierName} | T:${player.tier} | XP:${player.xp}] HP: ${player.health}/${player.maxHealth} | Essence: ${player.essence}/${player.maxEssence} | Stamina: ${player.stamina}/${player.maxStamina}${aspectDisplay}${trueNameDisplay}${player.zone ? ' | Zone: ' + player.zone : ''}${cooldownCount ? ' | CD:' + cooldownCount : ''}`;
   updatePlayerStatus(status);
   if (currentEnemy) {
     showEnemyStatus(`[${currentEnemy.name} T:${currentEnemy.tier}] HP: ${currentEnemy.health}/${currentEnemy.maxHealth} | Stamina: ${currentEnemy.stamina}/${currentEnemy.maxStamina} | Essence: ${currentEnemy.essence}/${currentEnemy.maxEssence}`);
   } else {
     showEnemyStatus(null);
   }
-  // save often so progress isn't lost
   saveGame();
 }
 
@@ -82,9 +87,15 @@ export function gainXP(amount) {
   saveGame();
 }
 
+export function tickCooldowns() {
+  for (const k of Object.keys(player.cooldowns)) {
+    player.cooldowns[k] = Math.max(0, player.cooldowns[k] - 1);
+    if (player.cooldowns[k] === 0) delete player.cooldowns[k];
+  }
+}
+
 export function checkLevelUp() {
   let leveled = false;
-  // support multiple level-ups at once
   while (player.tier < RANKS.length - 1 && player.xp >= xpToNextTier(player.tier)) {
     const needed = xpToNextTier(player.tier);
     player.xp -= needed;
@@ -93,29 +104,22 @@ export function checkLevelUp() {
     updatePlayerStatsForTier(player.tier);
     leveled = true;
 
-    // TRUE NAME mechanic (Option 3): check on each rank up
-    // chance composition:
-    // base 1% + tier * 5% + accumulated per-battle (converted from percent stored as 0.25 increments)
+    // TRUE NAME mechanic on rank-up (Option 3)
     const base = 0.01;
     const tierBonus = player.tier * 0.05;
     const acc = (player.trueNameAccumulatedChance || 0) / 100.0;
     const trueChance = base + tierBonus + acc;
     if (!player.trueName && Math.random() < trueChance) {
-      // reveal a True Name
       player.trueName = player.aspect ? `${player.aspect} True` : 'Revealed Name';
-      // ensure UI shows it immediately
-      // UI update below will save
     }
   }
 
   if (leveled) {
-    // restore on rank up
     player.health = player.maxHealth;
     player.essence = player.maxEssence;
     player.stamina = player.maxStamina;
     updateUI();
   } else {
-    // still ensure save
     saveGame();
   }
 }
@@ -137,19 +141,23 @@ export function saveGame() {
         maxStamina: player.maxStamina,
         baseDamageBonus: player.baseDamageBonus,
         critChanceFlat: player.critChanceFlat,
+        critMultiplier: player.critMultiplier,
+        evasionFlat: player.evasionFlat,
         aspect: player.aspect,
         trueName: player.trueName,
         inventory: player.inventory,
         x: player.x,
         y: player.y,
         travelDistance: player.travelDistance,
-        trueNameAccumulatedChance: player.trueNameAccumulatedChance
+        trueNameAccumulatedChance: player.trueNameAccumulatedChance,
+        cooldowns: player.cooldowns,
+        zone: player.zone
       },
       ts: Date.now()
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(out));
   } catch (err) {
-    // ignore save errors for now
+    // ignore save errors
   }
 }
 
@@ -171,6 +179,8 @@ export function loadGame() {
     player.maxStamina = p.maxStamina ?? player.maxStamina;
     player.baseDamageBonus = p.baseDamageBonus ?? player.baseDamageBonus;
     player.critChanceFlat = p.critChanceFlat ?? player.critChanceFlat;
+    player.critMultiplier = p.critMultiplier ?? player.critMultiplier;
+    player.evasionFlat = p.evasionFlat ?? player.evasionFlat;
     player.aspect = p.aspect ?? player.aspect;
     player.trueName = p.trueName ?? player.trueName;
     player.inventory = p.inventory ?? player.inventory;
@@ -178,6 +188,8 @@ export function loadGame() {
     player.y = p.y ?? player.y;
     player.travelDistance = p.travelDistance ?? player.travelDistance;
     player.trueNameAccumulatedChance = p.trueNameAccumulatedChance ?? player.trueNameAccumulatedChance;
+    player.cooldowns = p.cooldowns ?? player.cooldowns;
+    player.zone = p.zone ?? player.zone;
     updatePlayerStatsForTier(player.tier);
     return true;
   } catch (err) {
@@ -185,5 +197,4 @@ export function loadGame() {
   }
 }
 
-// Auto-load on module eval
 loadGame();
