@@ -62,7 +62,7 @@ Somewhere deep within you, a spark stirs—faint, fragile, hungry.
 Choose an Aspect, and the nightmare will shape itself around your path.
 Fail to choose, and the Realm will choose for you.
 
-Type 'choose <aspect>' to begin. (shadow, sun)
+Type 'choose <aspect>' to begin. (shadow, sun, seer, mirror, superhuman, perfection)
 
 Only 1% of Sleepers ever awaken with a True Name.
 
