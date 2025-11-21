@@ -1,109 +1,51 @@
-import { player, updateStatsUI, logAction, rankUp } from './core.js';
-import { buildEnemyFromRank } from './enemies.js';
+// combat.js
+import { player, logAction, updateStatsUI, rankUp } from './core.js';
+import { generateEnemy } from './enemies.js';
+import { generateMemory } from './memories.js';
 
-let currentEnemy = null;
+export let currentEnemy = null;
 
-export function spawnEnemy(rank=1) {
-    currentEnemy = buildEnemyFromRank(rank);
-    logAction(`${currentEnemy.name} appears!`);
-    updateStatsUI(currentEnemy);
-}
-
-export function attackEnemy() {
-    if(!currentEnemy) return logAction("No enemy to attack.");
-    
-    // Melee attack
-    const dmg = Math.floor(Math.random()*(18-7+1))+7;
-    const staminaDrain = dmg-2;
-    player.stamina -= staminaDrain;
-    currentEnemy.health -= dmg;
-    logAction(`${player.name} hits ${currentEnemy.name} for ${dmg} damage (-${staminaDrain} stamina).`);
-    
-    // Enemy counter
-    if(currentEnemy.health>0) {
-        enemyAction(currentEnemy);
-    } else {
-        logAction(`${currentEnemy.name} is defeated!`);
-        player.xp += currentEnemy.xp;
-        currentEnemy = null;
-        updateStatsUI();
-        if(player.xp>=calcNextRankXP(player.rank)) rankUp();
-    }
-
-    updateStatsUI(currentEnemy);
-}
-
-function enemyAction(enemy) {
-    const ability = enemy.abilities[Math.floor(Math.random()*enemy.abilities.length)];
-    switch(ability) {
-        case "despair":
-            const essLoss = Math.floor(enemy.maxDamage*0.5);
-            player.essence -= essLoss;
-            logAction(`${enemy.name} uses Despair! Player loses ${essLoss} essence.`);
-            break;
-        case "lunge":
-            const dmg = Math.floor(Math.random()*(enemy.maxDamage-enemy.minDamage+1))+enemy.minDamage+5;
-            player.hp -= dmg;
-            logAction(`${enemy.name} lunges for ${dmg} damage.`);
-            break;
-        case "reinforce":
-            const heal = Math.floor(enemy.maxHealth*0.15);
-            enemy.health = Math.min(enemy.maxHealth, enemy.health+heal);
-            logAction(`${enemy.name} reinforces, restoring ${heal} HP.`);
-            break;
-    }
-}
-
-function calcNextRankXP(rank) {
-    const ranksXP = [200,400,800,1200,1500,2000];
-    return ranksXP[rank-1] || Infinity;
-}
-
-export { currentEnemy };
-import { player, updateStatsUI, logAction } from './core.js';
-import { currentEnemy } from './combat.js';
-import { ASPECT_ABILITIES } from './abilities.js';
-
-export function useAbility(name) {
-    const ability = player.abilities.find(a=>a.name.toLowerCase()===name.toLowerCase());
-    if(!ability) return logAction("Ability not found or not unlocked!");
-    if(player.essence < ability.essenceCost) return logAction("Not enough essence!");
-
-    // Execute ability effect
-    ability.effect();
-    updateStatsUI(currentEnemy);
-}
-export function attackEnemy() {
-    if(!currentEnemy) return logAction("No enemy to attack.");
-
-    let dmg = Math.floor(Math.random()*(18-7+1))+7;
-
-    // Apply buffs/debuffs
-    if(player._damageMultiplier) dmg *= player._damageMultiplier;
-    if(player._damageBuff) dmg += player._damageBuff;
-    if(currentEnemy._damageReduction) dmg *= 1-currentEnemy._damageReduction;
-
-    const staminaDrain = dmg-2;
-    player.stamina -= staminaDrain;
-    currentEnemy.health -= dmg;
-
-    logAction(`${player.name} hits ${currentEnemy.name} for ${dmg.toFixed(0)} damage (-${staminaDrain} stamina).`);
-
-    // Decrease buff turns
-    if(player._damageBuffTurns) player._damageBuffTurns--;
-    if(player._buffTurns) player._buffTurns--;
-    if(player._damageBuffTurns===0) player._damageMultiplier=1;
-    if(player._buffTurns===0) player._damageReduction=0;
-
-    // Enemy counterattack if alive
-    if(currentEnemy.health>0) enemyAction(currentEnemy);
-    else {
-        logAction(`${currentEnemy.name} is defeated!`);
-        player.xp += currentEnemy.xp;
-        currentEnemy=null;
-        updateStatsUI();
-        if(player.xp>=calcNextRankXP(player.rank)) rankUp();
-    }
-
-    updateStatsUI(currentEnemy);
-}
+export const ASPECT_ABILITIES = {
+    Sun:[
+        {name:"Soul Flame", essenceCost:15, type:"active", effect:(choice)=>{
+            if(choice==="heal"){player.hp=Math.min(player.maxHp,player.hp+40);logAction("Healed 40 HP!");}
+            else {player._damageMultiplier=2;player._damageBuffTurns=2;logAction("Damage doubled 2 turns!");}
+            player.essence-=15;
+        }},
+        {name:"Flame Manipulation", essenceCost:10, type:"active", effect:()=>{
+            const dmg=Math.floor(Math.random()*6)+15;currentEnemy.health-=dmg;player.essence-=10;
+            logAction(`Flame Manipulation hits ${currentEnemy.name} for ${dmg}.`);
+        }},
+        {name:"Longing", essenceCost:18, type:"active", effect:()=>{
+            player._damageReduction=0.3;player._buffTurns=2;player.essence-=18;logAction("Damage reduced by 30% 2 turns");
+        }},
+        {name:"Partial Transformation", essenceCost:30, type:"active", effect:()=>{
+            player.hp=Math.min(player.maxHp,player.hp+60);player._damageMultiplier=2;player._damageBuffTurns=2;player.essence-=30;
+            logAction("Partial Transformation: 60 HP healed, 2x damage 2 turns");
+        }},
+        {name:"Domain", essenceCost:40, type:"domain", effect:()=>{
+            player._damageMultiplier=2;player._damageReduction=0.35;player._buffTurns=3;player.essence-=40;
+            logAction("Sun Domain active: 2x damage & 35% DR 3 turns");
+        }}
+    ],
+    Shadow:[
+        {name:"Shadow Slave", essenceCost:13, type:"active", effect:()=>{player._damageMultiplier=2;player._damageBuffTurns=2;player.essence-=13;logAction("Shadow Slave: 2x damage 2 turns");}},
+        {name:"Shadow Step", essenceCost:0, type:"passive", effect:()=>{player._dodgeChance=0.15;player._buffTurns=2;logAction("Shadow Step: 15% dodge 2 turns");}},
+        {name:"Shadow Manifestation", essenceCost:17, type:"active", effect:()=>{player._damageBuff=3;player._critBuff=0.03;player.essence-=17;logAction("Shadow blade summoned +3 dmg, +3% crit");}},
+        {name:"Shadow Avatars", essenceCost:25, type:"active", effect:()=>{player._extraAttacks=2;player.essence-=25;logAction("Shadow Avatars: attack twice next turn");}},
+        {name:"Domain", essenceCost:40, type:"domain", effect:()=>{player._damageMultiplier=2;player._damageReduction=0.35;player._buffTurns=3;player.essence-=40;logAction("Shadow Domain active: 2x damage & 35% DR 3 turns");}}
+    ],
+    Mirror:[
+        {name:"Split Personality", essenceCost:13, type:"active", effect:()=>{player._extraAttacks=2;player.essence-=13;logAction("Split Personality: attack twice next turn");}},
+        {name:"Mirror Beast", essenceCost:17, type:"active", effect:()=>{const dmg=Math.floor(Math.random()*10)+16;currentEnemy.health-=dmg;player.essence-=17;logAction(`Mirror Beast hits ${currentEnemy.name} ${dmg}`);}},
+        {name:"Reflection", essenceCost:16, type:"active", effect:()=>{player._reflectNext=true;player.essence-=16;logAction("Reflection: next attack reflected");}},
+        {name:"Take Over", essenceCost:25, type:"active", effect:()=>{currentEnemy._damageReduction=0.25;player.essence-=25;logAction("Take Over: enemy dmg reduced 25% 2 turns");}},
+        {name:"Domain", essenceCost:40, type:"domain", effect:()=>{player._damageMultiplier=2;player._damageReduction=0.35;player._buffTurns=3;player.essence-=40;logAction("Mirror Domain active 2x dmg & 35% DR");}}
+    ],
+    Superhuman:[
+        {name:"Overpower", essenceCost:13, type:"active", effect:()=>{player._damageMultiplier=1.25;player._damageBuffTurns=2;player.essence-=13;logAction("Overpower: 1.25x dmg 2 turns");}},
+        {name:"Defense", essenceCost:16, type:"active", effect:()=>{player._damageReduction=0.23;player._buffTurns=2;player.essence-=16;logAction("Defense: 23% DR 2 turns");}},
+        {name:"Inspiration", essenceCost:29, type:"active", effect:()=>{player._damageMultiplier=1.5;player._damageReduction=0.3;player._buffTurns=1;player.essence-=29;logAction("Inspiration: 1.5x dmg next & 30% DR");}},
+        {name:"Gigantification", essenceCost:()=>Math.max(0,player._lastDamage*2-2), type:"active", effect:()=>{
+            const dmg=Math.floor(Math.random()*16)+20; const essenceDrain=dmg-2;
+            if(player.essence<essenceDrain)return logAction("Not enough essence for Gigantification!");
