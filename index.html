@@ -1,55 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Nightmare Crucible</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Nightmare Crucible</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap');
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap');
 
-        #game-output::-webkit-scrollbar { width: 8px; }
-        #game-output::-webkit-scrollbar-thumb { background-color: #f87171; border-radius: 4px; }
-        #game-output::-webkit-scrollbar-track { background-color: #111827; }
+    #game-output::-webkit-scrollbar { width: 8px; }
+    #game-output::-webkit-scrollbar-thumb { background-color: #f87171; border-radius: 4px; }
+    #game-output::-webkit-scrollbar-track { background-color: #111827; }
 
-        .terminal-font { font-family: 'IBM Plex Mono', monospace; }
-    </style>
+    .terminal-font { font-family: 'IBM Plex Mono', monospace; }
+
+    .bar-container {
+        width: 200px;
+        height: 10px;
+        background-color: #333;
+        border: 1px solid #555;
+        margin: 2px 0;
+    }
+
+    .bar {
+        height: 100%;
+        width: 0%;
+        background-color: #4caf50;
+    }
+
+    .bar.essence { background-color: #2196f3; }
+    .bar.enemy { background-color: #ff4c4c; }
+    .bar.enemy.essence { background-color: #ff9900; }
+</style>
 </head>
 
 <body class="bg-gray-900 text-gray-200 min-h-screen flex items-center justify-center p-4">
 
-    <div class="w-full max-w-4xl bg-gray-800 rounded-xl shadow-2xl border-4 border-gray-700">
+<div class="w-full max-w-4xl bg-gray-800 rounded-xl shadow-2xl border-4 border-gray-700">
 
-        <!-- Game Header -->
-        <header class="p-4 border-b border-gray-700 bg-gray-700/30 rounded-t-lg">
-            <h1 class="text-3xl font-bold text-red-400 terminal-font">The Nightmare Crucible</h1>
-            <p class="text-sm text-gray-400">A Sleeper's journey into the Dream Realm. Type 'help' to begin.</p>
-        </header>
+    <!-- Game Header -->
+    <header class="p-4 border-b border-gray-700 bg-gray-700/30 rounded-t-lg">
+        <h1 class="text-3xl font-bold text-red-400 terminal-font">The Nightmare Crucible</h1>
+        <p class="text-sm text-gray-400">A Sleeper's journey into the Dream Realm. Type 'help' to begin.</p>
+    </header>
 
-        <!-- Game Info Display -->
-        <div id="game-info" class="p-4 bg-gray-900 border-b border-gray-700 flex justify-between terminal-font text-sm">
-            <div id="player-status"></div>
-            <div id="enemy-status" class="hidden"></div>
+    <!-- Player & Enemy Status -->
+    <div id="game-info" class="p-4 bg-gray-900 border-b border-gray-700 flex justify-between terminal-font text-sm">
+        <div id="player-status">
+            Runes: <span id="playerRunes">0</span> |
+            HP: <span id="playerHP">100</span>/<span id="playerMaxHP">100</span>
+            <div class="bar-container"><div id="playerHPBar" class="bar"></div></div>
+            Essence: <span id="playerEssence">100</span>/<span id="playerMaxEssence">100</span>
+            <div class="bar-container"><div id="playerEssenceBar" class="bar essence"></div></div>
         </div>
 
-        <!-- Console Output -->
-        <div id="game-output" class="terminal-font p-4 h-96 overflow-y-auto whitespace-pre-wrap text-sm"></div>
-
-        <!-- Command Input -->
-        <div class="p-4 border-t border-gray-700 flex items-center">
-            <span class="text-red-400 terminal-font">>></span>
-            <input 
-                type="text" 
-                id="command-input" 
-                placeholder="Enter your command..."
-                class="w-full bg-transparent border-none focus:outline-none text-gray-200 terminal-font ml-2"
-            >
+        <div id="enemy-status" class="hidden">
+            <span id="enemyName"></span> T:<span id="enemyTier"></span> |
+            HP: <span id="enemyHP">0</span>/<span id="enemyMaxHP">0</span>
+            <div class="bar-container"><div id="enemyHPBar" class="bar enemy"></div></div>
+            Essence: <span id="enemyEssence">0</span>/<span id="enemyMaxEssence">0</span>
+            <div class="bar-container"><div id="enemyEssenceBar" class="bar enemy essence"></div></div>
+            DMG: <span id="enemyDMG">0-0</span>
         </div>
-
     </div>
 
-    <!-- GAME MODULES -->
+    <!-- Console Output -->
+    <div id="game-output" class="terminal-font p-4 h-96 overflow-y-auto whitespace-pre-wrap text-sm"></div>
+
+    <!-- Command Input -->
+    <div class="p-4 border-t border-gray-700 flex items-center">
+        <span class="text-red-400 terminal-font">>></span>
+        <input type="text" id="command-input" placeholder="Enter your command..."
+               class="w-full bg-transparent border-none focus:outline-none text-gray-200 terminal-font ml-2">
+    </div>
+
+</div>
+
+<!-- GAME MODULES -->
 <script type="module" src="game/ui.js"></script>
 <script type="module" src="game/core.js"></script>
 <script type="module" src="game/enemies.js"></script>
@@ -61,4 +89,3 @@
 
 </body>
 </html>
-
