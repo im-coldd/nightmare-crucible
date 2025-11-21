@@ -1,103 +1,69 @@
-// core.js (or movement.js)
-
+// movement.js
+import { player, updateStatsUI, logAction } from './core.js';
 import { buildEnemyFromRank } from './enemies.js';
-
-export const player = {
-    name: "Veiled",
-    aspect: "Shadow",
-    hp: 77,
-    maxHp: 100,
-    essence: 95,
-    maxEssence: 100,
-    xp: 0,
-    runes: 0
-};
+import { attackEnemy, spawnEnemy as spawnCombatEnemy } from './combat.js';
 
 let currentEnemy = null;
 
-// --- UI Functions ---
-export function updateStatsUI() {
-    document.getElementById("playerHP").textContent = player.hp;
-    document.getElementById("playerMaxHP").textContent = player.maxHp;
-    document.getElementById("playerEssence").textContent = player.essence;
-    document.getElementById("playerMaxEssence").textContent = player.maxEssence;
-    document.getElementById("playerRunes").textContent = player.runes;
+// --- Movement Commands ---
 
-    if (currentEnemy) {
-        document.getElementById("enemy-status").classList.remove("hidden");
-        document.getElementById("enemyName").textContent = currentEnemy.name;
-        document.getElementById("enemyTier").textContent = currentEnemy.tier;
-        document.getElementById("enemyHP").textContent = currentEnemy.health;
-        document.getElementById("enemyMaxHP").textContent = currentEnemy.maxHealth;
-        document.getElementById("enemyEssence").textContent = currentEnemy.essence;
-        document.getElementById("enemyMaxEssence").textContent = currentEnemy.maxEssence;
-        document.getElementById("enemyDMG").textContent = `${currentEnemy.minDamage}-${currentEnemy.maxDamage}`;
-
-        document.getElementById("enemyHPBar").style.width = `${(currentEnemy.health / currentEnemy.maxHealth) * 100}%`;
-        document.getElementById("enemyEssenceBar").style.width = `${(currentEnemy.essence / currentEnemy.maxEssence) * 100}%`;
-
-        // Enemy rank highlight
-        const nameEl = document.getElementById("enemyName");
-        if (currentEnemy.tier >= 5) nameEl.style.color = "#ff3300"; // Boss
-        else if (currentEnemy.tier >= 3) nameEl.style.color = "#ffcc00"; // Elite
-        else nameEl.style.color = "#ff4c4c"; // Normal
-    }
+/**
+ * Move in a direction
+ * @param {string} direction
+ */
+export function move(direction) {
+    logAction(`${player.name} moves ${direction}.`);
+    // Here you could add actual map logic or random events
 }
 
-export function logAction(message) {
-    const log = document.getElementById("game-output");
-    const p = document.createElement("p");
-    p.textContent = message;
-    log.appendChild(p);
-    log.scrollTop = log.scrollHeight;
-}
-
-// --- Enemy Spawn & Combat ---
-export function spawnEnemy(rank = 0) {
+/**
+ * Seek an enemy of a given rank
+ * @param {number} rank
+ */
+export function seek(rank = 0) {
     currentEnemy = buildEnemyFromRank(rank);
-    logAction(`A ${currentEnemy.name} appears!`);
+    logAction(`${player.name} seeks and encounters a ${currentEnemy.name}!`);
+    document.getElementById("enemy-status").classList.remove("hidden");
     updateStatsUI();
 }
 
-export function attackEnemy() {
-    if (!currentEnemy) {
-        logAction("No enemy to attack.");
-        return;
-    }
-
-    const dmg = Math.floor(Math.random() * (player.maxHp / 10)) + 5;
-    currentEnemy.health -= dmg;
-    if (currentEnemy.health < 0) currentEnemy.health = 0;
-
-    logAction(`${player.name} hits ${currentEnemy.name} for ${dmg} damage!`);
-
-    if (currentEnemy.health > 0) {
-        const enemyDmg = Math.floor(Math.random() * (currentEnemy.maxDamage - currentEnemy.minDamage + 1)) + currentEnemy.minDamage;
-        player.hp -= enemyDmg;
-        if (player.hp < 0) player.hp = 0;
-        logAction(`${currentEnemy.name} hits ${player.name} for ${enemyDmg} damage!`);
-    } else {
-        logAction(`${currentEnemy.name} is defeated!`);
-        currentEnemy = null;
-    }
-
+/**
+ * Rest to regain HP
+ */
+export function rest() {
+    const hpRecovered = Math.min(player.maxHp - player.hp, 10);
+    player.hp += hpRecovered;
+    logAction(`${player.name} rests and recovers ${hpRecovered} HP.`);
     updateStatsUI();
 }
 
-// --- Command Handler ---
-document.getElementById("command-input").addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    const cmd = e.target.value.trim().toLowerCase();
-    e.target.value = "";
+/**
+ * Meditate to regain HP & Essence
+ */
+export function meditate() {
+    const hpRecovered = Math.min(player.maxHp - player.hp, 20);
+    const essenceRecovered = Math.min(player.maxEssence - player.essence, 20);
+    player.hp += hpRecovered;
+    player.essence += essenceRecovered;
+    logAction(`${player.name} meditates, restoring ${hpRecovered} HP and ${essenceRecovered} Essence.`);
+    updateStatsUI();
+}
 
-    if (cmd === "attack") attackEnemy();
-    else if (cmd.startsWith("seek")) {
-        const rank = parseInt(cmd.split(" ")[1]) || 0;
-        spawnEnemy(rank);
-    }
-    else if (cmd === "help") logAction("Commands: attack, seek <rank>, help");
-    else logAction(`Unknown command: ${cmd}`);
-});
+// --- Combat Integration ---
 
-// --- Initialize UI ---
-updateStatsUI();
+/**
+ * Spawn an enemy for combat
+ * @param {number} rank
+ */
+export function spawnEnemy(rank = 0) {
+    spawnCombatEnemy(rank);
+    currentEnemy = buildEnemyFromRank(rank);
+    document.getElementById("enemy-status").classList.remove("hidden");
+    updateStatsUI();
+}
+
+// --- Attack Command ---
+export { attackEnemy };
+
+// Optional: export currentEnemy for other modules
+export { currentEnemy };
