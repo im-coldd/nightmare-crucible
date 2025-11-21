@@ -107,6 +107,99 @@ export const ASPECT_ABILITIES = {
             logAction(`${player.name} activates Mirror Domain: 2x damage & 35% DR for 3 turns.`);
         }},
     ],
+// abilities.js (continuing from previous)
+
+ASPECT_ABILITIES.Superhuman = [
+    { name:"Overpower", essenceCost:13, type:"active", effect:()=>{
+        player._damageMultiplier = 1.25;
+        player._damageBuffTurns = 2;
+        player.essence -= 13;
+        logAction(`${player.name} uses Overpower: 1.25x damage for 2 turns.`);
+    }},
+    { name:"Defense", essenceCost:16, type:"active", effect:()=>{
+        player._damageReduction = 0.23;
+        player._buffTurns = 2;
+        player.essence -= 16;
+        logAction(`${player.name} uses Defense: reduces incoming damage by 23% for 2 turns.`);
+    }},
+    { name:"Inspiration", essenceCost:29, type:"active", effect:()=>{
+        player._damageReduction = 0.3;
+        player._damageMultiplier = 1.5;
+        player._buffTurns = 1;
+        player.essence -= 29;
+        logAction(`${player.name} uses Inspiration: 1.5x damage next turn & 30% DR.`);
+    }},
+    { name:"Gigantification", essenceCost:()=>Math.max(0, player._lastDamage*2-2), type:"active", effect:()=>{
+        const dmg = Math.floor(Math.random()*16)+20; 
+        const essenceDrain = dmg-2;
+        if(player.essence<essenceDrain) return logAction("Not enough essence for Gigantification!");
+        currentEnemy.health -= dmg;
+        player.essence -= essenceDrain;
+        logAction(`${player.name} uses Gigantification: deals ${dmg} damage, drains ${essenceDrain} essence.`);
+    }},
+    { name:"Domain", essenceCost:40, type:"domain", effect:()=>{
+        player._damageMultiplier = 2;
+        player._damageReduction = 0.35;
+        player._buffTurns = 3;
+        player.essence -= 40;
+        logAction(`${player.name} activates Superhuman Domain: 2x damage & 35% DR for 3 turns.`);
+    }},
+];
+
+ASPECT_ABILITIES.Perfection = [
+    { name:"Flight", essenceCost:()=>Math.floor(Math.random()*8)+13, type:"active", effect:()=>{
+        const dmg = Math.floor(Math.random()*8)+13;
+        currentEnemy.health -= dmg;
+        player.essence -= dmg-5;
+        logAction(`${player.name} uses Flight: deals ${dmg} damage.`);
+    }},
+    { name:"Obedience", essenceCost:15, type:"active", effect:()=>{
+        currentEnemy._damageReduction = 0.15;
+        player.essence -= 15;
+        logAction(`${player.name} uses Obedience: enemy attack reduced by 15% for 2 turns.`);
+    }},
+    { name:"Self Inspiration", essenceCost:17, type:"active", effect:()=>{
+        player._damageMultiplier = 1.2;
+        player._damageBuffTurns = 1;
+        player.essence -= 17;
+        logAction(`${player.name} uses Self Inspiration: 20% damage buff.`);
+    }},
+    { name:"Fire Breathing", essenceCost:()=>Math.floor(Math.random()*8)+18, type:"active", effect:()=>{
+        const dmg = Math.floor(Math.random()*8)+18;
+        currentEnemy.health -= dmg;
+        player.essence -= dmg-5;
+        logAction(`${player.name} uses Fire Breathing: deals ${dmg} damage.`);
+    }},
+    { name:"Domain", essenceCost:40, type:"domain", effect:()=>{
+        player._damageMultiplier = 2;
+        player._damageReduction = 0.35;
+        player._buffTurns = 3;
+        player.essence -= 40;
+        logAction(`${player.name} activates Perfection Domain: 2x damage & 35% DR for 3 turns.`);
+    }},
+];
+
+ASPECT_ABILITIES.Seer = [
+    { name:"Future Vision", essenceCost:15, type:"active", effect:()=>{
+        player._dodgeChance = 0.35;
+        player._buffTurns = 2;
+        player.essence -= 15;
+        logAction(`${player.name} uses Future Vision: 35% chance to dodge attacks for 2 turns.`);
+    }},
+    { name:"Future Sight", essenceCost:()=>Math.floor(Math.random()*8)+13, type:"active", effect:()=>{
+        const dmg = Math.floor(Math.random()*8)+13;
+        currentEnemy.health -= dmg;
+        player.essence -= dmg-5;
+        logAction(`${player.name} uses Future Sight: dodge next attack and deal ${dmg} damage.`);
+    }},
+    { name:"Perception Swap", essenceCost:16, type:"active", effect:()=>{
+        currentEnemy._accuracyDebuff = 0.17;
+        player.essence -= 16;
+        logAction(`${player.name} uses Perception Swap: enemy misses 17% more for 2 turns.`);
+    }},
+    { name:"Memory Implantation", essenceCost:20, type:"active", effect:()=>{
+        currentEnemy._accuracyDebuff = 0.26;
+        p
 
     // Similarly define Superhuman, Perfection, Seer...
 };
