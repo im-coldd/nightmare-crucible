@@ -5,20 +5,24 @@ export const player = {
     rank: 1,
     xp: 0,
     trueName: null,
-    
     hp: 100,
     maxHp: 100,
     stamina: 100,
     maxStamina: 100,
     essence: 100,
     maxEssence: 100,
-
     abilities: [],
     runes: [],
     memories: [],
+    _damageMultiplier: 1,
+    _damageBuff: 0,
+    _damageBuffTurns: 0,
+    _damageReduction: 0,
+    _buffTurns: 0,
+    _dodgeChance: 0
 };
 
-export function logAction(message) {
+export function logAction(message){
     const log = document.getElementById("game-output");
     const p = document.createElement("p");
     p.textContent = message;
@@ -26,19 +30,17 @@ export function logAction(message) {
     log.scrollTop = log.scrollHeight;
 }
 
-export function updateStatsUI(currentEnemy = null) {
-    // Player Stats
+export function updateStatsUI(currentEnemy = null){
+    if(!document.getElementById("playerHP")) return;
     document.getElementById("playerHP").textContent = player.hp;
     document.getElementById("playerMaxHP").textContent = player.maxHp;
+    document.getElementById("playerStamina").textContent = player.stamina;
+    document.getElementById("playerMaxStamina").textContent = player.maxStamina;
     document.getElementById("playerEssence").textContent = player.essence;
     document.getElementById("playerMaxEssence").textContent = player.maxEssence;
     document.getElementById("playerRunes").textContent = player.runes.length;
 
-    document.getElementById("playerHPBar").style.width = `${(player.hp/player.maxHp)*100}%`;
-    document.getElementById("playerEssenceBar").style.width = `${(player.essence/player.maxEssence)*100}%`;
-
-    // Enemy Stats
-    if (currentEnemy) {
+    if(currentEnemy){
         document.getElementById("enemy-status").classList.remove("hidden");
         document.getElementById("enemyName").textContent = currentEnemy.name;
         document.getElementById("enemyTier").textContent = currentEnemy.tier;
@@ -47,14 +49,12 @@ export function updateStatsUI(currentEnemy = null) {
         document.getElementById("enemyEssence").textContent = currentEnemy.essence;
         document.getElementById("enemyMaxEssence").textContent = currentEnemy.maxEssence;
         document.getElementById("enemyDMG").textContent = `${currentEnemy.minDamage}-${currentEnemy.maxDamage}`;
-        document.getElementById("enemyHPBar").style.width = `${(currentEnemy.health/currentEnemy.maxHealth)*100}%`;
-        document.getElementById("enemyEssenceBar").style.width = `${(currentEnemy.essence/currentEnemy.maxEssence)*100}%`;
     } else {
         document.getElementById("enemy-status").classList.add("hidden");
     }
 }
 
-export function rankUp() {
+export function rankUp(){
     const ranks = [
         {name:"Dormant", hp:100, essence:100, stamina:100, xp:200},
         {name:"Awakened", hp:150, essence:150, stamina:150, xp:400},
@@ -64,16 +64,12 @@ export function rankUp() {
         {name:"Sacred", hp:350, essence:350, stamina:350, xp:2000},
         {name:"Divine", hp:400, essence:400, stamina:400, xp:0}
     ];
-
-    if(player.rank < ranks.length) {
+    if(player.rank<ranks.length){
         player.rank++;
         const r = ranks[player.rank-1];
-        player.maxHp = r.hp;
-        player.hp = r.hp;
-        player.maxEssence = r.essence;
-        player.essence = r.essence;
-        player.maxStamina = r.stamina;
-        player.stamina = r.stamina;
+        player.maxHp = r.hp; player.hp=r.hp;
+        player.maxEssence=r.essence; player.essence=r.essence;
+        player.maxStamina=r.stamina; player.stamina=r.stamina;
         logAction(`You have ranked up to ${r.name}!`);
     }
 }
