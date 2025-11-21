@@ -1,69 +1,34 @@
-// movement.js
 import { player, updateStatsUI, logAction } from './core.js';
 import { buildEnemyFromRank } from './enemies.js';
-import { attackEnemy, spawnEnemy as spawnCombatEnemy } from './combat.js';
+import { attackEnemy, spawnEnemy as combatSpawn } from './combat.js';
 
-let currentEnemy = null;
-
-// --- Movement Commands ---
-
-/**
- * Move in a direction
- * @param {string} direction
- */
 export function move(direction) {
-    logAction(`${player.name} moves ${direction}.`);
-    // Here you could add actual map logic or random events
+    const distance = Math.floor(Math.random()*750)+750; // 750-1500m
+    logAction(`${player.name} moves ${direction} ${distance} meters.`);
 }
 
-/**
- * Seek an enemy of a given rank
- * @param {number} rank
- */
-export function seek(rank = 0) {
-    currentEnemy = buildEnemyFromRank(rank);
-    logAction(`${player.name} seeks and encounters a ${currentEnemy.name}!`);
-    document.getElementById("enemy-status").classList.remove("hidden");
-    updateStatsUI();
+export function seek(rank=1) {
+    const enemy = buildEnemyFromRank(rank);
+    combatSpawn(rank);
+    updateStatsUI(enemy);
 }
 
-/**
- * Rest to regain HP
- */
 export function rest() {
-    const hpRecovered = Math.min(player.maxHp - player.hp, 10);
+    const time = Math.floor(Math.random()*90)+30; // 30-120 minutes
+    const hpRecovered = Math.min(player.maxHp - player.hp, 20 + time*0.25);
+    const staminaRecovered = Math.min(player.maxStamina - player.stamina, 20 + time*0.25);
     player.hp += hpRecovered;
-    logAction(`${player.name} rests and recovers ${hpRecovered} HP.`);
+    player.stamina += staminaRecovered;
+    logAction(`${player.name} rests for ${time} minutes and recovers ${hpRecovered.toFixed(0)} HP and ${staminaRecovered.toFixed(0)} stamina.`);
     updateStatsUI();
 }
 
-/**
- * Meditate to regain HP & Essence
- */
 export function meditate() {
-    const hpRecovered = Math.min(player.maxHp - player.hp, 20);
-    const essenceRecovered = Math.min(player.maxEssence - player.essence, 20);
-    player.hp += hpRecovered;
+    const time = Math.floor(Math.random()*90)+30;
+    const essenceRecovered = Math.min(player.maxEssence - player.essence, 20 + time*0.25);
+    const xpGained = 20 + (player.rank-1)*10;
     player.essence += essenceRecovered;
-    logAction(`${player.name} meditates, restoring ${hpRecovered} HP and ${essenceRecovered} Essence.`);
+    player.xp += xpGained;
+    logAction(`${player.name} meditates for ${time} minutes, recovers ${essenceRecovered.toFixed(0)} Essence and gains ${xpGained} XP.`);
     updateStatsUI();
 }
-
-// --- Combat Integration ---
-
-/**
- * Spawn an enemy for combat
- * @param {number} rank
- */
-export function spawnEnemy(rank = 0) {
-    spawnCombatEnemy(rank);
-    currentEnemy = buildEnemyFromRank(rank);
-    document.getElementById("enemy-status").classList.remove("hidden");
-    updateStatsUI();
-}
-
-// --- Attack Command ---
-export { attackEnemy };
-
-// Optional: export currentEnemy for other modules
-export { currentEnemy };
