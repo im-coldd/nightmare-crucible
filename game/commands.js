@@ -1,112 +1,76 @@
-// commands.js — command parser and wiring (updated)
+// commands.js — parse input, call logic modules; returns string or frames array
 import * as Core from './core.js';
 import * as Combat from './combat.js';
 import * as Movement from './movement.js';
 import { getAspect, findAbilityByKey } from './aspects.js';
-import { applyConsumable } from './memories.js';
-import { addToOutput } from './ui.js';
+import * as Memories from './memories.js';
+import * as Enemies from './enemies.js';
 
 function showHelp() {
-  addToOutput("Commands: help, go <dir>, seek, attack, ranged, hide, rest <minutes>, meditate <minutes>, choose <aspect>, runes, inventory, use <item_key>, ability <ability_key> or useaspect <ability_key>");
+  return "Commands: help, go <dir>, seek, attack, ranged, hide, rest <min>, meditate <min>, choose <aspect>, runes, inventory, use <item_key>, ability <ability_key>, restart, keep, status";
 }
 
-function attemptUseAbilityByKey(key) {
-  const info = findAbilityByKey(key);
-  if (!info) { addToOutput('Unknown ability key.'); return; }
-  if (!Core.player.aspect) { addToOutput('Choose an Aspect first.'); return; }
-  const playerAspectKey = Core.player.aspect.toLowerCase();
-  if (playerAspectKey !== info.aspect) {
-    addToOutput('That ability does not belong to your chosen Aspect.');
-    return;
-  }
-  // cooldown check
-  if (Core.player.cooldowns[key] && Core.player.cooldowns[key] > 0) {
-    addToOutput(`Ability is on cooldown (${Core.player.cooldowns[key]} turns).`);
-    return;
-  }
-  // essence cost
-  if (Core.player.essence < info.ability.cost) {
-    addToOutput('Not enough Essence.');
-    return;
-  }
-  // consume essence and set cooldown if specified
-  Core.player.essence = Math.max(0, Core.player.essence - (info.ability.cost || 0));
-  if (info.ability.cooldown && info.ability.cooldown > 0) {
-    Core.player.cooldowns[key] = info.ability.cooldown;
-  }
-
-  // call ability execution handler in Combat to apply effects (centralized)
-  Combat.useAspectAbility(info.aspect, info.ability);
-  Core.updateUI();
+function chooseAspectFlow(arg) {
+  if (!arg) return "Choose which aspect? (shadow, sun, mirror, superhuman, perfection, seer)";
+  if (Core.player.aspect) return "Aspect already chosen. To change you must restart the game (type 'restart').";
+  const asp = getAspect(arg);
+  if (!asp) return "Unknown aspect.";
+  Core.player.aspect = arg;
+  Core.player.trueName = Math.random() < 0.01 ? (asp.trueName || 'True Name') : 'Veiled Name';
+  Core.saveGame();
+  return `You chose the Aspect: ${Core.player.aspect}.\n${Core.player.trueName === 'Veiled Name' ? 'Your True Name remains hidden for now.' : '*** TRUE NAME REVEALED! *** ' + Core.player.trueName}`;
 }
 
-export function handleCommand(raw) {
+function attemptUseAbility(key) {
+  const found = findAbilityByKey(key);
+  if (!found) return "Unknown ability key.";
+  const { aspectKey, ability } = found;
+  if (!Core.player.aspect) return "Choose an Aspect first.";
+  if (Core.player.aspect !== aspectKey) return "That ability is not from your Aspect.";
+  if (Core.player.cooldowns[ability.key] && Core.player.cooldowns[ability.key] > 0) return `Ability on cooldown (${Core.player.cooldowns[ability.key]} turns).`;
+  if ((ability.cost || 0) > Core.player.essence) return "Not enough Essence.";
+
+  // consume & set cooldown
+  Core.player.essence = Math.max(0, Core.player.essence - (ability.cost || 0));
+  if (ability.cooldown && ability.cooldown > 0) Core.player.cooldowns[ability.key] = ability.cooldown;
+
+  // call combat to apply
+  const res = Combat.useAspectAbility(aspectKey, ability);
+  Core.tickCooldowns();
+  Core.saveGame();
+  return res;
+}
+
+export default function handleCommand(raw) {
   const parts = raw.trim().split(/\s+/);
-  const cmd = parts[0];
+  const cmd = (parts[0] || '').toLowerCase();
   const args = parts.slice(1);
 
   switch (cmd) {
-    case 'help':
-      showHelp();
-      break;
-    case 'go':
-      Movement.move(args[0] || '');
-      break;
-    case 'seek':
-      Movement.seek();
-      break;
-    case 'attack':
-      Combat.performMeleeAttack();
-      break;
-    case 'ranged':
-      Combat.performRangedAttack();
-      break;
-    case 'hide':
-      Movement.hide();
-      break;
-    case 'rest':
-      Movement.rest(args[0]);
-      break;
-    case 'meditate':
-      Movement.meditate(args[0]);
-      break;
-    case 'choose':
-      if (!args[0]) { addToOutput('Choose which aspect? (shadow, sun, mirror, superhuman, perfection, seer)'); break; }
-      const asp = getAspect(args[0]);
-      if (!asp) { addToOutput('Unknown aspect.'); break; }
-      Core.player.aspect = args[0];
-      if (Math.random() < 0.01) {
-        Core.player.trueName = asp.trueName || 'True Name';
-        addToOutput(`*** TRUE NAME REVEALED! *** ${Core.player.trueName}`);
-      } else {
-        Core.player.trueName = 'Veiled Name';
-      }
-      addToOutput(`You chose the Aspect: ${Core.player.aspect}`);
-      Core.updateUI();
-      break;
-    case 'runes':
-      Core.updateUI();
-      break;
-    case 'inventory':
-      if (Core.player.inventory.length === 0) addToOutput('Your inventory is empty.');
-      else Core.player.inventory.forEach(i => addToOutput(`- ${i.name} (${i.key})`));
-      break;
-    case 'use':
-      if (!args[0]) { addToOutput('Use what?'); break; }
-      if (applyConsumable(Core.player, args[0])) addToOutput('Item used.');
-      else addToOutput('Cannot use that item.');
-      Core.updateUI();
-      break;
+    case 'help': return showHelp();
+    case 'go': return Movement.move(args[0]||'');
+    case 'seek': return Movement.seek();
+    case 'attack': return Combat.performMeleeAttack();
+    case 'ranged': return Combat.performRangedAttack();
+    case 'hide': return Movement.hide();
+    case 'rest': return Movement.rest(args[0]);
+    case 'meditate': return Movement.meditate(args[0]);
+    case 'choose': return chooseAspectFlow(args[0] && args[0].toLowerCase());
+    case 'runes': return `Runes: T:${Core.player.tier} XP:${Core.player.xp} HP:${Core.player.health}/${Core.player.maxHealth} Ess:${Core.player.essence}/${Core.player.maxEssence}`;
+    case 'inventory': return Core.player.inventory.length ? Core.player.inventory.map(i=>`- ${i.name} (${i.key})`).join('\n') : 'Inventory empty.';
+    case 'use': if (!args[0]) return 'Use what?'; return Memories.applyConsumable(Core.player, args[0]) ? 'Item used.' : 'Cannot use that item.';
     case 'ability':
     case 'useaspect':
     case 'useability':
-      if (!args[0]) { addToOutput('Which ability key? e.g. soul_flame, shadow_slave'); break; }
-      attemptUseAbilityByKey(args[0]);
-      break;
-    default:
-      addToOutput('Unknown command: ' + cmd);
+      if (!args[0]) return "Which ability key?";
+      return attemptUseAbility(args[0]);
+    case 'restart':
+      Core.clearSave();
+      return 'Save cleared. Type "keep" to continue with new game or "choose <aspect>" to select an Aspect.';
+    case 'keep':
+      return 'Continuing with existing save...';
+    case 'status':
+      return `HP:${Core.player.health}/${Core.player.maxHealth} Ess:${Core.player.essence}/${Core.player.maxEssence} Stamina:${Core.player.stamina}/${Core.player.maxStamina} Zone:${Core.player.zone}`;
+    default: return `Unknown command: ${cmd}. Type 'help'.`;
   }
 }
-
-// register with UI (ui.js will import and register)
-export default handleCommand;
