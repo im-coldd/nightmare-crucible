@@ -27,7 +27,6 @@ export function performMeleeAttack() {
 
   if (e.health <= 0) {
     const out = handleEnemyDefeat();
-    // return concatenated frames + outcome
     return frames.concat([out]);
   } else {
     const enemyRes = enemyTurn();
@@ -107,7 +106,6 @@ export function handleEnemyDefeat() {
 
 export function useAspectAbility(aspectKey, ability) {
   if (!ability) return "Ability not found.";
-  // ability effects (examples; keep as-is for now)
   switch (ability.key) {
     case 'shadow_slave':
       Core.player.nextAttackBuffed = true;
@@ -140,6 +138,8 @@ export function useAspectAbility(aspectKey, ability) {
       return `${ability.name} activated.`;
   }
 }
+
+/* ✔ ADD THIS: unified attack command */
 export function attack() {
   return performMeleeAttack();
 }
