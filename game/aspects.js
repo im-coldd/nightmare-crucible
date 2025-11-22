@@ -1,219 +1,118 @@
-// core.js — authoritative game state & persistence (no UI imports)
-export const SAVE_KEY = 'nightmare-crucible-v2';
+// aspects.js — definitions + findAbilityByKey helper
+import * as Core from './core.js';
 
-export const RANKS = [
-  { name: 'Dormant', hp:100, essence:100, stamina:100, xpToNext:200 },
-  { name: 'Awakened', hp:150, essence:150, stamina:150, xpToNext:400 },
-  { name: 'Ascended', hp:200, essence:200, stamina:200, xpToNext:800 },
-  { name: 'Transcendant', hp:250, essence:250, stamina:250, xpToNext:1200 },
-  { name: 'Supreme', hp:300, essence:300, stamina:300, xpToNext:1500 },
-  { name: 'Sacred', hp:350, essence:350, stamina:350, xpToNext:2000 },
-  { name: 'Divine', hp:400, essence:400, stamina:400, xpToNext: Infinity }
-];
+export const ASPECTS = {
+  shadow: {
+    name: 'Shadow',
+    trueName: 'Lost from Light',
+    desc: 'Shadow Slave: high damage at essence cost; stealth/double-attack toolkit.',
+    tierAbilities: {
+      1: { key: 'shadow_slave', name: 'Shadow Slave', desc: '2x damage for 2 turns. Drains 13 Essence.', cost: 13, cooldown: 6, type: 'buff' },
+      2: { key: 'shadow_step', name: 'Shadow Step', desc: '15% dodge for next enemy attack. No cost (toggle).', cost: 0, cooldown: 5, type: 'utility' },
+      3: { key: 'shadow_manifest', name: 'Shadow Manifestation', desc: '+3 base damage and +3% crit (activation drains 17 Essence).', cost: 17, cooldown: 0, type: 'passive' },
+      4: { key: 'shadow_avatar', name: 'Shadow Avatar', desc: 'Attack twice next turn (double attack). Drains 25 Essence.', cost: 25, cooldown: 7, type: 'offense' },
+      5: { key: 'shadow_domain', name: 'Domain', desc: 'Supreme: 2x damage and -35% incoming for 3 turns. Drains 40 Essence.', cost: 40, cooldown: 12, type: 'domain' }
+    },
+    passiveAbilities: {}
+  },
 
-export const player = {
-  name: 'Sleeper',
-  tier: 0,
-  xp: 0,
-  health: RANKS[0].hp,
-  maxHealth: RANKS[0].hp,
-  essence: RANKS[0].essence,
-  maxEssence: RANKS[0].essence,
-  stamina: RANKS[0].stamina,
-  maxStamina: RANKS[0].stamina,
-  baseDamageBonus: 0,
-  critChanceFlat: 0.01,
-  critMultiplier: 1.75,
-  evasionFlat: 0.02,
-  aspect: null, // string key of aspect, e.g. "shadow"
-  trueName: null,
-  inventory: [],
-  x: 0, y: 0,
-  travelDistance: 0,
-  trueNameAccumulatedChance: 0.0,
-  cooldowns: {},
-  zone: 'Wastes',
-  // runtime flags
-  damageBoost: 1,
-  dodgeReady: false,
-  doubleAttackReady: false,
-  damageReduction: 0,
-  nextAttackBuffed: false,
-  _despairTurns: 0
+  sun: {
+    name: 'Sun',
+    trueName: 'Changing Star',
+    desc: 'Sunlight Infusion: heals or powerful fire attacks.',
+    tierAbilities: {
+      1: { key: 'soul_flame', name: 'Soul Flame', desc: 'Choice: buff next attack (2x) or heal 40 HP. Drains 15 Essence.', cost: 15, cooldown: 6, type: 'choice' },
+      2: { key: 'flame_manipulation', name: 'Flame Manipulation', desc: 'Throw a fireball 15-25 dmg. Drains 11 Essence.', cost: 11, cooldown: 4, type: 'offense' },
+      3: { key: 'longing', name: 'Longing', desc: 'Reduce incoming damage by 30% for 2 turns. Drains 18 Essence.', cost: 18, cooldown: 6, type: 'defense' },
+      4: { key: 'partial_trans', name: 'Partial Transformation', desc: 'Heal 60 HP and double damage for 2 turns. Drains 30 Essence.', cost: 30, cooldown: 10, type: 'buff' },
+      5: { key: 'sun_domain', name: 'Domain', desc: 'Supreme: 2x damage and -35% incoming for 3 turns. Drains 40 Essence.', cost: 40, cooldown: 12, type: 'domain' }
+    },
+    passiveAbilities: {}
+  },
+
+  mirror: {
+    name: 'Mirror',
+    trueName: 'Prince of Nothing',
+    desc: 'Mirror Aspect: clones and reflections.',
+    tierAbilities: {
+      1: { key: 'split_personality', name: 'Split Personality', desc: 'Split into two: melee attack twice. Drains 13 Essence.', cost: 13, cooldown: 6, type: 'offense' },
+      2: { key: 'mirror_beast', name: 'Mirror Beast', desc: 'Summon a mirror beast to do 16-25 damage (auto attack). Drains 15 Essence.', cost: 15, cooldown: 7, type: 'summon' },
+      3: { key: 'reflection', name: 'Reflection', desc: 'Reflect an incoming attack back to the enemy. Drains 16 Essence.', cost: 16, cooldown: 8, type: 'utility' },
+      4: { key: 'take_over', name: 'Take Over', desc: 'Reduce enemy damage by 25% for 2 turns. Drains 25 Essence.', cost: 25, cooldown: 8, type: 'defense' },
+      5: { key: 'mirror_domain', name: 'Domain', desc: 'Supreme domain (2x damage & -35% incoming for 3 turns).', cost: 40, cooldown: 12, type: 'domain' }
+    },
+    passiveAbilities: {}
+  },
+
+  superhuman: {
+    name: 'Superhuman',
+    trueName: 'Raised by Wolves',
+    desc: 'Superhuman: raw physical buffs and defensive options.',
+    tierAbilities: {
+      1: { key: 'overpower', name: 'Overpower', desc: '1.25x damage for 2 turns. Drains 13 Essence.', cost: 13, cooldown: 5, type: 'buff' },
+      2: { key: 'defense', name: 'Defense', desc: 'Reduce incoming damage by 23% for 2 turns. Drains 16 Essence.', cost: 16, cooldown: 6, type: 'defense' },
+      3: { key: 'inspiration', name: 'Inspiration', desc: '30% incoming reduction + 1.5x next-turn damage. Drains 29 Essence.', cost: 29, cooldown: 9, type: 'buff' },
+      4: { key: 'gigantification', name: 'Gigantification', desc: 'Stomp for 20-35 damage. Essence scaled with damage.', cost: 18, cooldown: 6, type: 'offense' },
+      5: { key: 'super_domain', name: 'Domain', desc: 'Supreme domain (2x damage & -35% incoming for 3 turns).', cost: 40, cooldown: 12, type: 'domain' }
+    },
+    passiveAbilities: {}
+  },
+
+  perfection: {
+    name: 'Perfection',
+    trueName: 'Nightingale',
+    desc: 'Perfection: precise strikes and control.',
+    tierAbilities: {
+      1: { key: 'flight', name: 'Flight', desc: 'Strike from air for 13-20 damage. Drains 12 Essence.', cost: 12, cooldown: 5, type: 'offense' },
+      2: { key: 'obedience', name: 'Obedience', desc: 'Reduce enemy attack by 15% for 2 turns. Drains 15 Essence.', cost: 15, cooldown: 6, type: 'defense' },
+      3: { key: 'self_inspiration', name: 'Self Inspiration', desc: '20% damage buff. Drains 17 Essence.', cost: 17, cooldown: 6, type: 'buff' },
+      4: { key: 'fire_breath', name: 'Fire Breathing', desc: 'Transform and breathe for 18-25 damage. Essence cost per doc.', cost: 20, cooldown: 7, type: 'offense' },
+      5: { key: 'perfect_domain', name: 'Domain', desc: 'Supreme domain (2x damage & -35% incoming for 3 turns).', cost: 40, cooldown: 12, type: 'domain' }
+    },
+    passiveAbilities: {}
+  },
+
+  seer: {
+    name: 'Seer',
+    trueName: 'Song of the Fallen',
+    desc: 'Seer: dodge, preemption, and enemy confusion.',
+    tierAbilities: {
+      1: { key: 'future_vision', name: 'Future Vision', desc: '35% dodge chance for 2 turns. Drains 15 Essence.', cost: 15, cooldown: 6, type: 'defense' },
+      2: { key: 'future_sight', name: 'Future Sight', desc: 'Dodge next and strike 13-20 damage. Drains 15 Essence.', cost: 15, cooldown: 6, type: 'offense' },
+      3: { key: 'perception_swap', name: 'Perception Swap', desc: 'Confuse enemy: -17% hit chance for 2 turns. Drains 16 Essence.', cost: 16, cooldown: 7, type: 'utility' },
+      4: { key: 'memory_implant', name: 'Memory Implantation', desc: '26% chance next enemy attack misses. Drains 20 Essence.', cost: 20, cooldown: 8, type: 'utility' },
+      5: { key: 'seer_domain', name: 'Domain', desc: 'Supreme domain (2x damage & -35% incoming for 3 turns).', cost: 40, cooldown: 12, type: 'domain' }
+    },
+    passiveAbilities: {}
+  }
 };
 
-export let currentEnemy = null;
-
-// helpers
-export function xpToNextTier(tier) {
-  const r = RANKS[tier];
-  return r ? r.xpToNext : Infinity;
-}
-export function updatePlayerStatsForTier(tier) {
-  const r = RANKS[tier];
-  if (!r) return;
-  player.maxHealth = r.hp;
-  player.maxEssence = r.essence;
-  player.maxStamina = r.stamina;
-  player.health = Math.min(player.health, player.maxHealth);
-  player.essence = Math.min(player.essence, player.maxEssence);
-  player.stamina = Math.min(player.stamina, player.maxStamina);
+export function getAspect(key) {
+  return ASPECTS[key] || null;
 }
 
-// cooldown ticking (called by game loop)
-export function tickCooldowns() {
-  for (const k of Object.keys(player.cooldowns)) {
-    player.cooldowns[k] = Math.max(0, player.cooldowns[k] - 1);
-    if (player.cooldowns[k] === 0) delete player.cooldowns[k];
-  }
-}
-
-// leveling logic
-export function gainXP(amount) {
-  player.xp += amount;
-  saveGame();
-}
-
-export function checkLevelUp() {
-  let leveled = false;
-  // allow multi-leveling
-  while (player.tier < RANKS.length - 1 && player.xp >= xpToNextTier(player.tier)) {
-    const needed = xpToNextTier(player.tier);
-    player.xp -= needed;
-    player.tier += 1;
-    player.baseDamageBonus += 10;
-    updatePlayerStatsForTier(player.tier);
-    leveled = true;
-
-    // True name mechanic on rank-up (Option 3)
-    const base = 0.01;
-    const tierBonus = player.tier * 0.05;
-    const acc = (player.trueNameAccumulatedChance || 0) / 100.0;
-    const trueChance = base + tierBonus + acc;
-    if (!player.trueName && Math.random() < trueChance) {
-      player.trueName = player.aspect ? `${player.aspect} True` : 'Revealed Name';
+// helper to find ability by key (returns aspectKey + ability + tier)
+export function findAbilityByKey(abilityKey) {
+  for (const akey of Object.keys(ASPECTS)) {
+    const asp = ASPECTS[akey];
+    for (const tier of Object.keys(asp.tierAbilities)) {
+      const ab = asp.tierAbilities[tier];
+      if (ab.key === abilityKey) return { aspectKey: akey, ability: ab, tier: Number(tier) };
     }
   }
-
-  if (leveled) {
-    // restore some resources on rank up
-    player.health = player.maxHealth;
-    player.essence = player.maxEssence;
-    player.stamina = player.maxStamina;
-  }
-  saveGame();
-  return leveled;
+  return null;
 }
 
-// get status string for UI
-export function getStatusString() {
-  const p = player;
-  const tierName = RANKS[p.tier] ? RANKS[p.tier].name : `T:${p.tier}`;
-  let s = `STATUS:
-- Rank: ${tierName} (Tier ${p.tier})
-- HP: ${p.health}/${p.maxHealth}
-- Essence: ${p.essence}/${p.maxEssence}
-- Stamina: ${p.stamina}/${p.maxStamina}
-- XP: ${p.xp}
-- Aspect: ${p.aspect ? p.aspect : "None"}
-- True Name: ${p.trueName ? p.trueName : "Unknown"}`;
-
-  if (currentEnemy) {
-    s += `\nEnemy: ${currentEnemy.name} HP ${currentEnemy.health}/${currentEnemy.maxHealth}`;
+// simple 'abilities' command output (Option A: simple list)
+export function listAspectAbilities() {
+  const aspKey = Core.player.aspect;
+  if (!aspKey) return "You have not chosen an Aspect yet.";
+  const asp = ASPECTS[aspKey];
+  if (!asp) return "Aspect data missing.";
+  let msg = `Abilities for ${asp.name}:\n`;
+  for (const t of Object.keys(asp.tierAbilities)) {
+    const ab = asp.tierAbilities[t];
+    msg += `- ${ab.key} (Tier ${t})\n`;
   }
-  // cooldowns short view
-  const cds = Object.keys(p.cooldowns || {});
-  if (cds.length) s += `\nCooldowns: ${cds.map(k => `${k}:${p.cooldowns[k]}`).join(', ')}`;
-  return s;
-}
-
-// persistence
-export function saveGame() {
-  try {
-    const out = {
-      v: '2',
-      player: {
-        name: player.name,
-        tier: player.tier,
-        xp: player.xp,
-        health: player.health,
-        maxHealth: player.maxHealth,
-        essence: player.essence,
-        maxEssence: player.maxEssence,
-        stamina: player.stamina,
-        maxStamina: player.maxStamina,
-        baseDamageBonus: player.baseDamageBonus,
-        critChanceFlat: player.critChanceFlat,
-        critMultiplier: player.critMultiplier,
-        evasionFlat: player.evasionFlat,
-        aspect: player.aspect,
-        trueName: player.trueName,
-        inventory: player.inventory,
-        x: player.x,
-        y: player.y,
-        travelDistance: player.travelDistance,
-        trueNameAccumulatedChance: player.trueNameAccumulatedChance,
-        cooldowns: player.cooldowns,
-        zone: player.zone
-      },
-      ts: Date.now()
-    };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(out));
-  } catch (err) {
-    // ignore
-  }
-}
-
-export function loadGame() {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return false;
-    const data = JSON.parse(raw);
-    if (!data || !data.player) return false;
-    const p = data.player;
-    player.name = p.name ?? player.name;
-    player.tier = p.tier ?? player.tier;
-    player.xp = p.xp ?? player.xp;
-    player.health = p.health ?? player.health;
-    player.maxHealth = p.maxHealth ?? player.maxHealth;
-    player.essence = p.essence ?? player.essence;
-    player.maxEssence = p.maxEssence ?? player.maxEssence;
-    player.stamina = p.stamina ?? player.stamina;
-    player.maxStamina = p.maxStamina ?? player.maxStamina;
-    player.baseDamageBonus = p.baseDamageBonus ?? player.baseDamageBonus;
-    player.critChanceFlat = p.critChanceFlat ?? player.critChanceFlat;
-    player.critMultiplier = p.critMultiplier ?? player.critMultiplier;
-    player.evasionFlat = p.evasionFlat ?? player.evasionFlat;
-    player.aspect = p.aspect ?? player.aspect;
-    player.trueName = p.trueName ?? player.trueName;
-    player.inventory = p.inventory ?? player.inventory;
-    player.x = p.x ?? player.x;
-    player.y = p.y ?? player.y;
-    player.travelDistance = p.travelDistance ?? player.travelDistance;
-    player.trueNameAccumulatedChance = p.trueNameAccumulatedChance ?? player.trueNameAccumulatedChance;
-    player.cooldowns = p.cooldowns ?? player.cooldowns;
-    player.zone = p.zone ?? player.zone;
-    updatePlayerStatsForTier(player.tier);
-    return true;
-  } catch (err) {
-    return false;
-  }
-}
-
-export function clearSave() {
-  try {
-    localStorage.removeItem(SAVE_KEY);
-  } catch (e) {}
-  // reset memory state
-  player.tier = 0; player.xp = 0;
-  player.health = RANKS[0].hp; player.maxHealth = RANKS[0].hp;
-  player.essence = RANKS[0].essence; player.maxEssence = RANKS[0].essence;
-  player.stamina = RANKS[0].stamina; player.maxStamina = RANKS[0].stamina;
-  player.aspect = null;
-  player.trueName = null;
-  player.inventory = [];
-  player.x = 0; player.y = 0; player.travelDistance = 0;
-  player.trueNameAccumulatedChance = 0;
-  player.cooldowns = {};
-  player.zone = 'Wastes';
+  return msg.trim();
 }
