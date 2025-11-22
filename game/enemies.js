@@ -1,4 +1,4 @@
-// enemies.js — extended with minibosses and zone-aware templates
+// enemies.js — extended enemy templates + minibosses
 export const ENEMIES_BY_TIER = {
   0: [
     { name: "Lurking Shade", tier: 0, minDamage: 5, maxDamage: 10, health: 55, stamina: 60, essence: 40, xp: 40, abilities: ["despair"] },
@@ -55,14 +55,14 @@ function cloneTemplate(tpl) {
 }
 
 export function generateSeekEnemy(tier = 0) {
-  const pool = ENEMIES_BY_TIER[tier] || ENEMIES_BY_TIER[0];
+  const pool = ENEMIES_BY_TIER[Math.max(0, Math.min(5, Math.floor(tier)))] || ENEMIES_BY_TIER[0];
   const tpl = pool[Math.floor(Math.random() * pool.length)];
   return cloneTemplate(tpl);
 }
 
 export function generateMinibossForZone(zone = 'Wastes') {
   const pool = MINIBOSSES_BY_ZONE[zone] || [];
-  if (!pool.length) return generateSeekEnemy( Math.min(5, Math.max(0, Math.floor(Math.random()*3 + 1))) );
+  if (!pool.length) return generateSeekEnemy(Math.min(5, Math.max(0, Math.floor(Math.random()*3 + 1))));
   const tpl = pool[Math.floor(Math.random() * pool.length)];
   tpl.rarity = 'miniboss';
   return cloneTemplate(tpl);
