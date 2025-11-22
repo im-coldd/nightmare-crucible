@@ -1,4 +1,6 @@
 // aspects.js — definitions + findAbilityByKey helper
+import * as Core from './core.js';
+
 export const ASPECTS = {
   shadow: {
     name: 'Shadow',
@@ -77,4 +79,21 @@ export function findAbilityByKey(abilityKey) {
     }
   }
   return null;
+}
+export function listAspectAbilities() {
+  if (!Core.player.aspect) {
+    return "You have not chosen an Aspect yet.";
+  }
+
+  const aspect = ASPECTS[Core.player.aspect];
+  if (!aspect) return "Aspect data missing.";
+
+  let msg = `Abilities for ${aspect.name}:\n`;
+
+  for (const tier in aspect.tierAbilities) {
+    const ab = aspect.tierAbilities[tier];
+    msg += `- ${ab.key} (Tier ${tier})\n`;
+  }
+
+  return msg;
 }
