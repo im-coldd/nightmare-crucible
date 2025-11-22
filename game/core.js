@@ -1,6 +1,4 @@
 // core.js — authoritative game state & persistence (no UI imports)
-export let currentEnemy = null;  // NOT const
-
 export const SAVE_KEY = 'nightmare-crucible-v2';
 
 export const RANKS = [
@@ -46,7 +44,7 @@ export const player = {
 
 export let currentEnemy = null;
 
-// simple helpers
+// helpers
 export function xpToNextTier(tier) {
   const r = RANKS[tier];
   return r ? r.xpToNext : Infinity;
@@ -70,7 +68,7 @@ export function tickCooldowns() {
   }
 }
 
-// leveling logic (fixed)
+// leveling logic
 export function gainXP(amount) {
   player.xp += amount;
   saveGame();
@@ -105,6 +103,28 @@ export function checkLevelUp() {
   }
   saveGame();
   return leveled;
+}
+
+// get status string for UI
+export function getStatusString() {
+  const p = player;
+  const tierName = RANKS[p.tier] ? RANKS[p.tier].name : `T:${p.tier}`;
+  let s = `STATUS:
+- Rank: ${tierName} (Tier ${p.tier})
+- HP: ${p.health}/${p.maxHealth}
+- Essence: ${p.essence}/${p.maxEssence}
+- Stamina: ${p.stamina}/${p.maxStamina}
+- XP: ${p.xp}
+- Aspect: ${p.aspect ? p.aspect : "None"}
+- True Name: ${p.trueName ? p.trueName : "Unknown"}`;
+
+  if (currentEnemy) {
+    s += `\nEnemy: ${currentEnemy.name} HP ${currentEnemy.health}/${currentEnemy.maxHealth}`;
+  }
+  // cooldowns short view
+  const cds = Object.keys(p.cooldowns || {});
+  if (cds.length) s += `\nCooldowns: ${cds.map(k => `${k}:${p.cooldowns[k]}`).join(', ')}`;
+  return s;
 }
 
 // persistence
@@ -184,7 +204,7 @@ export function clearSave() {
   try {
     localStorage.removeItem(SAVE_KEY);
   } catch (e) {}
-  // reset in-memory to defaults (simple reset)
+  // reset memory state
   player.tier = 0; player.xp = 0;
   player.health = RANKS[0].hp; player.maxHealth = RANKS[0].hp;
   player.essence = RANKS[0].essence; player.maxEssence = RANKS[0].essence;
@@ -196,21 +216,4 @@ export function clearSave() {
   player.trueNameAccumulatedChance = 0;
   player.cooldowns = {};
   player.zone = 'Wastes';
-}
-export function getStatusString() {
-  const p = player;
-  let s = `STATUS:
-- Rank: ${RANKS[p.tier].name} (Tier ${p.tier})
-- HP: ${p.health}/${p.maxHealth}
-- Essence: ${p.essence}/${p.maxEssence}
-- Stamina: ${p.stamina}/${p.maxStamina}
-- XP: ${p.xp}
-- Aspect: ${p.aspect ? p.aspect : "None"}
-- True Name: ${p.trueName ? p.trueName : "Unknown"}\n`;
-
-  if (currentEnemy) {
-    s += `Enemy: ${currentEnemy.name} HP ${currentEnemy.health}/${currentEnemy.maxHealth}\n`;
-  }
-
-  return s;
 }
