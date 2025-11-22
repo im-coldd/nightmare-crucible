@@ -1,96 +1,106 @@
-// ui.js — UI helpers, intro/title screen, and small text animation engine
-import handleCommand from './commands.js';
+// ui.js — rendering & input wiring. Imports commands last to avoid circular imports.
 import * as Core from './core.js';
+import handleCommand from './commands.js';
 
 const outputBox = document.getElementById('game-output');
 const playerStatusBox = document.getElementById('player-status');
 const enemyStatusBox = document.getElementById('enemy-status');
 const inputBox = document.getElementById('command-input');
 
-export function addToOutput(text, style = '') {
-  const p = document.createElement('p');
+function addToOutput(text, cls='') {
+  // accept strings or arrays (frames)
+  if (Array.isArray(text)) {
+    text.forEach(t => addToOutput(t, cls));
+    return;
+  }
+  const p = document.createElement('div');
   p.textContent = text;
-  p.className = 'py-0.5 terminal-font ' + style;
+  if (cls) p.className = cls;
   outputBox.appendChild(p);
   outputBox.scrollTop = outputBox.scrollHeight;
 }
 
-export function clearOutput() {
+function clearOutput() {
   outputBox.innerHTML = '';
 }
 
-export function updatePlayerStatus(text) {
-  playerStatusBox.textContent = text;
-}
-
-export function showEnemyStatus(text) {
-  if (!text) {
+function updateStatus() {
+  const tierName = Core.RANKS[Core.player.tier] ? Core.RANKS[Core.player.tier].name : `T:${Core.player.tier}`;
+  const aspect = Core.player.aspect ? ` | Aspect: ${Core.player.aspect}` : '';
+  const trueName = Core.player.trueName && Core.player.trueName !== 'Veiled Name' ? ` | True Name: ${Core.player.trueName}` : '';
+  playerStatusBox.textContent = `Runes: [${tierName} | T:${Core.player.tier} | XP:${Core.player.xp}] HP: ${Core.player.health}/${Core.player.maxHealth} | Essence: ${Core.player.essence}/${Core.player.maxEssence} | Stamina: ${Core.player.stamina}/${Core.player.maxStamina}${aspect}${trueName} | Zone: ${Core.player.zone}`;
+  if (Core.currentEnemy) {
+    enemyStatusBox.classList.remove('hidden');
+    enemyStatusBox.textContent = `[${Core.currentEnemy.name} T:${Core.currentEnemy.tier}] HP:${Core.currentEnemy.health}/${Core.currentEnemy.maxHealth}`;
+  } else {
     enemyStatusBox.classList.add('hidden');
     enemyStatusBox.textContent = '';
+  }
+}
+
+// Title + keep-or-restart prompt (Option C)
+let waitingForKeepOrRestart = false;
+function showIntro() {
+  clearOutput();
+  addToOutput('*** The Nightmare Crucible ***');
+  // if saved data exists, offer choice
+  const saved = Core.loadGame();
+  if (saved && Core.player.aspect) {
+    addToOutput('A previous save was found. Type "keep" to keep it or "restart" to start fresh.');
+    waitingForKeepOrRestart = true;
+    inputBox.placeholder = 'Type keep or restart';
   } else {
-    enemyStatusBox.classList.remove('hidden');
-    enemyStatusBox.textContent = text;
+    // show original intro prompting choose aspect
+    addToOutput(`You awaken as a Sleeper in the Dream Realm. You must choose an Aspect to survive.\nType 'choose <aspect>' to begin (shadow, sun, mirror, superhuman, perfection, seer). Only a 1% chance to know your True Name!\nType 'help' for more commands.`);
+    inputBox.placeholder = 'Enter command...';
+    waitingForKeepOrRestart = false;
   }
+  updateStatus();
 }
 
-// animate a sequence of text frames, delay ms between frames
-export function animateTextFrames(frames = [], delay = 200) {
-  let i = 0;
-  function step() {
-    if (i >= frames.length) return;
-    addToOutput(frames[i]);
-    i++;
-    if (i < frames.length) setTimeout(step, delay);
-  }
-  step();
-}
-
-// Title / intro handling
-let started = false;
-function showTitle() {
-  clearOutput();
-  addToOutput('*** THE NIGHTMARE CRUCIBLE ***', 'text-red-300');
-  addToOutput('A Sleeper\'s journey into the Dream Realm. Press Enter to begin.', 'text-gray-400');
-  inputBox.placeholder = 'Press Enter to start...';
-  inputBox.addEventListener('keydown', onTitleKeydown);
-}
-function onTitleKeydown(e) {
-  if (e.key !== 'Enter') return;
-  inputBox.removeEventListener('keydown', onTitleKeydown);
-  startGame();
-}
-function startGame() {
-  started = true;
-  clearOutput();
-  const intro = `You awaken to darkness.
-
-A chill clings to your skin as the Dream Realm settles around you—endless, silent, watching.
-Shadows breathe at the edges of your vision, waiting to see if you will stand… or break.
-
-Type 'help' for commands.`;
-  addToOutput(intro);
-  inputBox.placeholder = "Enter command...";
-  Core.updateUI();
-}
-
-// wire input to commands if started
+// process input lines
 inputBox.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
   const raw = inputBox.value.trim();
   inputBox.value = '';
-  if (!started) {
-    startGame();
-    return;
-  }
   if (!raw) return;
   addToOutput('>> ' + raw, 'text-green-300');
+  if (waitingForKeepOrRestart) {
+    const cmd = raw.trim().toLowerCase();
+    if (cmd === 'keep') {
+      waitingForKeepOrRestart = false;
+      Core.saveGame();
+      addToOutput('Keeping save. Continue with your adventure. Type help.');
+      updateStatus();
+      return;
+    } else if (cmd === 'restart') {
+      Core.clearSave();
+      waitingForKeepOrRestart = false;
+      addToOutput('Save reset. New game started. Type choose <aspect> to begin.');
+      updateStatus();
+      return;
+    } else {
+      addToOutput('Type "keep" or "restart".');
+      return;
+    }
+  }
+  // normal command dispatch
   try {
-    const maybe = handleCommand(raw.toLowerCase());
-    if (maybe) addToOutput(maybe);
+    const res = handleCommand(raw);
+    if (Array.isArray(res)) {
+      res.forEach(r => addToOutput(r));
+    } else {
+      addToOutput(res);
+    }
   } catch (err) {
     addToOutput('Command error: ' + err.message);
   }
+  // update UI after command
+  Core.saveGame();
+  updateStatus();
 });
 
 // init
-showTitle();
+showIntro();
+
+export { addToOutput, updateStatus, clearOutput };
