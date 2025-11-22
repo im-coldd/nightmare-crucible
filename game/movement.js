@@ -1,7 +1,6 @@
 // movement.js — travel, seek, rest, meditate, hide
 import * as Core from './core.js';
 import { generateSeekEnemy, generateMinibossForZone } from './enemies.js';
-
 const MOVEMENT_VECTORS = {
   north:{dx:0,dy:1}, south:{dx:0,dy:-1}, east:{dx:1,dy:0}, west:{dx:-1,dy:0},
   northeast:{dx:1,dy:1}, northwest:{dx:-1,dy:1}, southeast:{dx:1,dy:-1}, southwest:{dx:-1,dy:-1}
