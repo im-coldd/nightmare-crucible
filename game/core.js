@@ -1,16 +1,14 @@
-// core.js — game state, ranks, levelup, UI sync, persistence (updated)
-import { updatePlayerStatus, showEnemyStatus } from './ui.js';
-
-export const SAVE_KEY = 'nightmare-crucible-v1';
+// core.js — authoritative game state & persistence (no UI imports)
+export const SAVE_KEY = 'nightmare-crucible-v2';
 
 export const RANKS = [
-  { name: 'Dormant', hp: 100, essence: 100, stamina: 100, xpToNext: 200 },
-  { name: 'Awakened', hp: 150, essence: 150, stamina: 150, xpToNext: 400 },
-  { name: 'Ascended', hp: 200, essence: 200, stamina: 200, xpToNext: 800 },
-  { name: 'Transcendant', hp: 250, essence: 250, stamina: 250, xpToNext: 1200 },
-  { name: 'Supreme', hp: 300, essence: 300, stamina: 300, xpToNext: 1500 },
-  { name: 'Sacred', hp: 350, essence: 350, stamina: 350, xpToNext: 2000 },
-  { name: 'Divine', hp: 400, essence: 400, stamina: 400, xpToNext: Infinity }
+  { name: 'Dormant', hp:100, essence:100, stamina:100, xpToNext:200 },
+  { name: 'Awakened', hp:150, essence:150, stamina:150, xpToNext:400 },
+  { name: 'Ascended', hp:200, essence:200, stamina:200, xpToNext:800 },
+  { name: 'Transcendant', hp:250, essence:250, stamina:250, xpToNext:1200 },
+  { name: 'Supreme', hp:300, essence:300, stamina:300, xpToNext:1500 },
+  { name: 'Sacred', hp:350, essence:350, stamina:350, xpToNext:2000 },
+  { name: 'Divine', hp:400, essence:400, stamina:400, xpToNext: Infinity }
 ];
 
 export const player = {
@@ -24,69 +22,45 @@ export const player = {
   stamina: RANKS[0].stamina,
   maxStamina: RANKS[0].stamina,
   baseDamageBonus: 0,
-  critChanceFlat: 0.01,      // base crit chance
-  critMultiplier: 1.75,     // crit damage multiplier
-  evasionFlat: 0.02,        // base 2% evade
-  aspect: null,
+  critChanceFlat: 0.01,
+  critMultiplier: 1.75,
+  evasionFlat: 0.02,
+  aspect: null, // string key of aspect, e.g. "shadow"
   trueName: null,
   inventory: [],
   x: 0, y: 0,
   travelDistance: 0,
   trueNameAccumulatedChance: 0.0,
+  cooldowns: {},
+  zone: 'Wastes',
   // runtime flags
   damageBoost: 1,
   dodgeReady: false,
-  domainReady: false,
-  avatarReady: false,
   doubleAttackReady: false,
   damageReduction: 0,
   nextAttackBuffed: false,
-  _despairTurns: 0,
-  _reinforceTurns: 0,
-  // cooldowns: { abilityKey: turnsRemaining }
-  cooldowns: {},
-  // zone/biome
-  zone: 'Wastes' // default starting zone
+  _despairTurns: 0
 };
 
 export let currentEnemy = null;
 
+// simple helpers
 export function xpToNextTier(tier) {
   const r = RANKS[tier];
   return r ? r.xpToNext : Infinity;
 }
-
 export function updatePlayerStatsForTier(tier) {
   const r = RANKS[tier];
   if (!r) return;
   player.maxHealth = r.hp;
-  player.health = Math.min(player.health, player.maxHealth);
   player.maxEssence = r.essence;
-  player.essence = Math.min(player.essence, player.maxEssence);
   player.maxStamina = r.stamina;
+  player.health = Math.min(player.health, player.maxHealth);
+  player.essence = Math.min(player.essence, player.maxEssence);
   player.stamina = Math.min(player.stamina, player.maxStamina);
 }
 
-export function updateUI() {
-  const tierName = RANKS[player.tier] ? RANKS[player.tier].name : `T:${player.tier}`;
-  const aspectDisplay = player.aspect ? ` | Aspect: ${player.aspect}` : '';
-  const trueNameDisplay = (player.trueName && player.trueName !== 'Veiled Name') ? ` | True Name: ${player.trueName}` : '';
-  const cooldownCount = Object.keys(player.cooldowns).length;
-  const status = `Runes: [${tierName} | T:${player.tier} | XP:${player.xp}] HP: ${player.health}/${player.maxHealth} | Essence: ${player.essence}/${player.maxEssence} | Stamina: ${player.stamina}/${player.maxStamina}${aspectDisplay}${trueNameDisplay}${player.zone ? ' | Zone: ' + player.zone : ''}${cooldownCount ? ' | CD:' + cooldownCount : ''}`;
-  updatePlayerStatus(status);
-  if (currentEnemy) {
-    showEnemyStatus(`[${currentEnemy.name} T:${currentEnemy.tier}] HP: ${currentEnemy.health}/${currentEnemy.maxHealth} | Stamina: ${currentEnemy.stamina}/${currentEnemy.maxStamina} | Essence: ${currentEnemy.essence}/${currentEnemy.maxEssence}`);
-  } else {
-    showEnemyStatus(null);
-  }
-  saveGame();
-}
-
-export function gainXP(amount) {
-  player.xp += amount;
-  saveGame();
-}
-
+// cooldown ticking (called by game loop)
 export function tickCooldowns() {
   for (const k of Object.keys(player.cooldowns)) {
     player.cooldowns[k] = Math.max(0, player.cooldowns[k] - 1);
@@ -94,8 +68,15 @@ export function tickCooldowns() {
   }
 }
 
+// leveling logic (fixed)
+export function gainXP(amount) {
+  player.xp += amount;
+  saveGame();
+}
+
 export function checkLevelUp() {
   let leveled = false;
+  // allow multi-leveling
   while (player.tier < RANKS.length - 1 && player.xp >= xpToNextTier(player.tier)) {
     const needed = xpToNextTier(player.tier);
     player.xp -= needed;
@@ -104,7 +85,7 @@ export function checkLevelUp() {
     updatePlayerStatsForTier(player.tier);
     leveled = true;
 
-    // TRUE NAME mechanic on rank-up (Option 3)
+    // True name mechanic on rank-up (Option 3)
     const base = 0.01;
     const tierBonus = player.tier * 0.05;
     const acc = (player.trueNameAccumulatedChance || 0) / 100.0;
@@ -115,20 +96,20 @@ export function checkLevelUp() {
   }
 
   if (leveled) {
+    // restore some resources on rank up
     player.health = player.maxHealth;
     player.essence = player.maxEssence;
     player.stamina = player.maxStamina;
-    updateUI();
-  } else {
-    saveGame();
   }
+  saveGame();
+  return leveled;
 }
 
-// --------------------- persistence ---------------------
+// persistence
 export function saveGame() {
   try {
     const out = {
-      v: '1',
+      v: '2',
       player: {
         name: player.name,
         tier: player.tier,
@@ -157,7 +138,7 @@ export function saveGame() {
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(out));
   } catch (err) {
-    // ignore save errors
+    // ignore
   }
 }
 
@@ -197,4 +178,20 @@ export function loadGame() {
   }
 }
 
-loadGame();
+export function clearSave() {
+  try {
+    localStorage.removeItem(SAVE_KEY);
+  } catch (e) {}
+  // reset in-memory to defaults (simple reset)
+  player.tier = 0; player.xp = 0;
+  player.health = RANKS[0].hp; player.maxHealth = RANKS[0].hp;
+  player.essence = RANKS[0].essence; player.maxEssence = RANKS[0].essence;
+  player.stamina = RANKS[0].stamina; player.maxStamina = RANKS[0].stamina;
+  player.aspect = null;
+  player.trueName = null;
+  player.inventory = [];
+  player.x = 0; player.y = 0; player.travelDistance = 0;
+  player.trueNameAccumulatedChance = 0;
+  player.cooldowns = {};
+  player.zone = 'Wastes';
+}
