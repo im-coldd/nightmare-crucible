@@ -1,4 +1,6 @@
 // core.js — authoritative game state & persistence (no UI imports)
+export let currentEnemy = null;  // NOT const
+
 export const SAVE_KEY = 'nightmare-crucible-v2';
 
 export const RANKS = [
