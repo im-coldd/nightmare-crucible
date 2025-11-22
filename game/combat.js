@@ -140,3 +140,6 @@ export function useAspectAbility(aspectKey, ability) {
       return `${ability.name} activated.`;
   }
 }
+export function attack() {
+  return performMeleeAttack();
+}
