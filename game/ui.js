@@ -8,7 +8,6 @@ const enemyStatusBox = document.getElementById('enemy-status');
 const inputBox = document.getElementById('command-input');
 
 function addToOutput(text, cls='') {
-  // accept strings or arrays (frames)
   if (Array.isArray(text)) {
     text.forEach(t => addToOutput(t, cls));
     return;
@@ -51,7 +50,11 @@ function showIntro() {
     inputBox.placeholder = 'Type keep or restart';
   } else {
     // show original intro prompting choose aspect
-    addToOutput(`You awaken as a Sleeper in the Dream Realm. You must choose an Aspect to survive.\nType 'choose <aspect>' to begin (shadow, sun, mirror, superhuman, perfection, seer). Only a 1% chance to know your True Name!\nType 'help' for more commands.`);
+    addToOutput(`You awaken as a Sleeper in the Dream Realm. You must choose an Aspect to survive.
+
+Type 'choose <aspect>' to begin (shadow, sun, mirror, superhuman, perfection, seer). Only a 1% chance to know your True Name!
+
+Type 'help' for more commands.`);
     inputBox.placeholder = 'Enter command...';
     waitingForKeepOrRestart = false;
   }
