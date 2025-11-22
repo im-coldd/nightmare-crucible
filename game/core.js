@@ -197,3 +197,20 @@ export function clearSave() {
   player.cooldowns = {};
   player.zone = 'Wastes';
 }
+export function getStatusString() {
+  const p = player;
+  let s = `STATUS:
+- Rank: ${RANKS[p.tier].name} (Tier ${p.tier})
+- HP: ${p.health}/${p.maxHealth}
+- Essence: ${p.essence}/${p.maxEssence}
+- Stamina: ${p.stamina}/${p.maxStamina}
+- XP: ${p.xp}
+- Aspect: ${p.aspect ? p.aspect : "None"}
+- True Name: ${p.trueName ? p.trueName : "Unknown"}\n`;
+
+  if (currentEnemy) {
+    s += `Enemy: ${currentEnemy.name} HP ${currentEnemy.health}/${currentEnemy.maxHealth}\n`;
+  }
+
+  return s;
+}
