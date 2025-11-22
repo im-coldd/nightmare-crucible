@@ -1,99 +1,219 @@
-// aspects.js — definitions + findAbilityByKey helper
-import * as Core from './core.js';
+// core.js — authoritative game state & persistence (no UI imports)
+export const SAVE_KEY = 'nightmare-crucible-v2';
 
-export const ASPECTS = {
-  shadow: {
-    name: 'Shadow',
-    trueName: 'Lost from Light',
-    tierAbilities: {
-      1: { key: 'shadow_slave', name:'Shadow Slave', desc:'2x damage next 2 attacks', cost:13, cooldown:6, type:'buff' },
-      2: { key: 'shadow_step', name:'Shadow Step', desc:'Evade next attack (15%)', cost:0, cooldown:5, type:'utility' },
-      3: { key: 'shadow_manifest', name:'Shadow Manifestation', desc:'+3 base damage +3% crit (permanent)', cost:17, cooldown:0, type:'passive' },
-      4: { key: 'shadow_avatar', name:'Shadow Avatar', desc:'Attack twice next turn', cost:25, cooldown:7, type:'offense' },
-      5: { key: 'shadow_domain', name:'Domain', desc:'2x damage & -35% incoming (3 turns)', cost:40, cooldown:12, type:'domain' }
-    }
-  },
-  sun: {
-    name:'Sun', trueName:'Changing Star',
-    tierAbilities: {
-      1: { key:'soul_flame', name:'Soul Flame', desc:'Buff next attack or heal 40 HP', cost:15, cooldown:6, type:'choice' },
-      2: { key:'flame_manipulation', name:'Flame Manipulation', desc:'15-25 dmg fireball', cost:11, cooldown:4, type:'offense' },
-      3: { key:'longing', name:'Longing', desc:'-30% incoming for 2 turns', cost:18, cooldown:6, type:'defense' },
-      4: { key:'partial_trans', name:'Partial Transformation', desc:'Heal 60 and 2x damage for 2 turns', cost:30, cooldown:10, type:'buff' },
-      5: { key:'sun_domain', name:'Domain', desc:'2x damage & -35% incoming (3 turns)', cost:40, cooldown:12, type:'domain' }
-    }
-  },
-  // other aspects shortened for brevity; keep same shape
-  mirror: {
-    name:'Mirror', trueName:'Prince of Nothing',
-    tierAbilities: {
-      1:{key:'split_personality',name:'Split Personality',desc:'Attack twice',cost:13,cooldown:6,type:'offense'},
-      2:{key:'mirror_beast',name:'Mirror Beast',desc:'Summon mirror beast',cost:15,cooldown:7,type:'summon'},
-      3:{key:'reflection',name:'Reflection',desc:'Reflect next incoming attack',cost:16,cooldown:8,type:'utility'},
-      4:{key:'take_over',name:'Take Over',desc:'Reduce enemy damage',cost:25,cooldown:8,type:'defense'},
-      5:{key:'mirror_domain',name:'Domain',desc:'Domain',cost:40,cooldown:12,type:'domain'}
-    }
-  },
-  superhuman: {
-    name:'Superhuman', trueName:'Raised by Wolves',
-    tierAbilities: {
-      1:{key:'overpower',name:'Overpower',desc:'1.25x damage 2 turns',cost:13,cooldown:5,type:'buff'},
-      2:{key:'defense',name:'Defense',desc:'-23% incoming for 2 turns',cost:16,cooldown:6,type:'defense'},
-      3:{key:'inspiration',name:'Inspiration',desc:'30% incoming reduction + next-turn damage',cost:29,cooldown:9,type:'buff'},
-      4:{key:'gigantification',name:'Gigantification',desc:'Stomp for big damage',cost:18,cooldown:6,type:'offense'},
-      5:{key:'super_domain',name:'Domain',desc:'Domain',cost:40,cooldown:12,type:'domain'}
-    }
-  },
-  perfection: {
-    name:'Perfection', trueName:'Nightingale',
-    tierAbilities: {
-      1:{key:'flight',name:'Flight',desc:'13-20 damage',cost:12,cooldown:5,type:'offense'},
-      2:{key:'obedience',name:'Obedience',desc:'-15% enemy attack',cost:15,cooldown:6,type:'defense'},
-      3:{key:'self_inspiration',name:'Self Inspiration',desc:'20% damage buff',cost:17,cooldown:6,type:'buff'},
-      4:{key:'fire_breath',name:'Fire Breathing',desc:'18-25 damage',cost:20,cooldown:7,type:'offense'},
-      5:{key:'perfect_domain',name:'Domain',desc:'Domain',cost:40,cooldown:12,type:'domain'}
-    }
-  },
-  seer: {
-    name:'Seer', trueName:'Song of the Fallen',
-    tierAbilities: {
-      1:{key:'future_vision',name:'Future Vision',desc:'35% dodge for 2 turns',cost:15,cooldown:6,type:'defense'},
-      2:{key:'future_sight',name:'Future Sight',desc:'Dodge next + strike',cost:15,cooldown:6,type:'offense'},
-      3:{key:'perception_swap',name:'Perception Swap',desc:'Confuse enemy',cost:16,cooldown:7,type:'utility'},
-      4:{key:'memory_implant',name:'Memory Implantation',desc:'Chance enemy misses',cost:20,cooldown:8,type:'utility'},
-      5:{key:'seer_domain',name:'Domain',desc:'Domain',cost:40,cooldown:12,type:'domain'}
-    }
-  }
+export const RANKS = [
+  { name: 'Dormant', hp:100, essence:100, stamina:100, xpToNext:200 },
+  { name: 'Awakened', hp:150, essence:150, stamina:150, xpToNext:400 },
+  { name: 'Ascended', hp:200, essence:200, stamina:200, xpToNext:800 },
+  { name: 'Transcendant', hp:250, essence:250, stamina:250, xpToNext:1200 },
+  { name: 'Supreme', hp:300, essence:300, stamina:300, xpToNext:1500 },
+  { name: 'Sacred', hp:350, essence:350, stamina:350, xpToNext:2000 },
+  { name: 'Divine', hp:400, essence:400, stamina:400, xpToNext: Infinity }
+];
+
+export const player = {
+  name: 'Sleeper',
+  tier: 0,
+  xp: 0,
+  health: RANKS[0].hp,
+  maxHealth: RANKS[0].hp,
+  essence: RANKS[0].essence,
+  maxEssence: RANKS[0].essence,
+  stamina: RANKS[0].stamina,
+  maxStamina: RANKS[0].stamina,
+  baseDamageBonus: 0,
+  critChanceFlat: 0.01,
+  critMultiplier: 1.75,
+  evasionFlat: 0.02,
+  aspect: null, // string key of aspect, e.g. "shadow"
+  trueName: null,
+  inventory: [],
+  x: 0, y: 0,
+  travelDistance: 0,
+  trueNameAccumulatedChance: 0.0,
+  cooldowns: {},
+  zone: 'Wastes',
+  // runtime flags
+  damageBoost: 1,
+  dodgeReady: false,
+  doubleAttackReady: false,
+  damageReduction: 0,
+  nextAttackBuffed: false,
+  _despairTurns: 0
 };
 
-export function getAspect(key) {
-  return ASPECTS[key] || null;
+export let currentEnemy = null;
+
+// helpers
+export function xpToNextTier(tier) {
+  const r = RANKS[tier];
+  return r ? r.xpToNext : Infinity;
+}
+export function updatePlayerStatsForTier(tier) {
+  const r = RANKS[tier];
+  if (!r) return;
+  player.maxHealth = r.hp;
+  player.maxEssence = r.essence;
+  player.maxStamina = r.stamina;
+  player.health = Math.min(player.health, player.maxHealth);
+  player.essence = Math.min(player.essence, player.maxEssence);
+  player.stamina = Math.min(player.stamina, player.maxStamina);
 }
 
-export function findAbilityByKey(abilityKey) {
-  for (const akey of Object.keys(ASPECTS)) {
-    const asp = ASPECTS[akey];
-    for (const tier of Object.keys(asp.tierAbilities)) {
-      const ab = asp.tierAbilities[tier];
-      if (ab.key === abilityKey) return { aspectKey: akey, ability: ab, tier:Number(tier) };
+// cooldown ticking (called by game loop)
+export function tickCooldowns() {
+  for (const k of Object.keys(player.cooldowns)) {
+    player.cooldowns[k] = Math.max(0, player.cooldowns[k] - 1);
+    if (player.cooldowns[k] === 0) delete player.cooldowns[k];
+  }
+}
+
+// leveling logic
+export function gainXP(amount) {
+  player.xp += amount;
+  saveGame();
+}
+
+export function checkLevelUp() {
+  let leveled = false;
+  // allow multi-leveling
+  while (player.tier < RANKS.length - 1 && player.xp >= xpToNextTier(player.tier)) {
+    const needed = xpToNextTier(player.tier);
+    player.xp -= needed;
+    player.tier += 1;
+    player.baseDamageBonus += 10;
+    updatePlayerStatsForTier(player.tier);
+    leveled = true;
+
+    // True name mechanic on rank-up (Option 3)
+    const base = 0.01;
+    const tierBonus = player.tier * 0.05;
+    const acc = (player.trueNameAccumulatedChance || 0) / 100.0;
+    const trueChance = base + tierBonus + acc;
+    if (!player.trueName && Math.random() < trueChance) {
+      player.trueName = player.aspect ? `${player.aspect} True` : 'Revealed Name';
     }
   }
-  return null;
+
+  if (leveled) {
+    // restore some resources on rank up
+    player.health = player.maxHealth;
+    player.essence = player.maxEssence;
+    player.stamina = player.maxStamina;
+  }
+  saveGame();
+  return leveled;
 }
-export function listAspectAbilities() {
-  if (!Core.player.aspect) {
-    return "You have not chosen an Aspect yet.";
+
+// get status string for UI
+export function getStatusString() {
+  const p = player;
+  const tierName = RANKS[p.tier] ? RANKS[p.tier].name : `T:${p.tier}`;
+  let s = `STATUS:
+- Rank: ${tierName} (Tier ${p.tier})
+- HP: ${p.health}/${p.maxHealth}
+- Essence: ${p.essence}/${p.maxEssence}
+- Stamina: ${p.stamina}/${p.maxStamina}
+- XP: ${p.xp}
+- Aspect: ${p.aspect ? p.aspect : "None"}
+- True Name: ${p.trueName ? p.trueName : "Unknown"}`;
+
+  if (currentEnemy) {
+    s += `\nEnemy: ${currentEnemy.name} HP ${currentEnemy.health}/${currentEnemy.maxHealth}`;
   }
+  // cooldowns short view
+  const cds = Object.keys(p.cooldowns || {});
+  if (cds.length) s += `\nCooldowns: ${cds.map(k => `${k}:${p.cooldowns[k]}`).join(', ')}`;
+  return s;
+}
 
-  const aspect = ASPECTS[Core.player.aspect];
-  if (!aspect) return "Aspect data missing.";
-
-  let msg = `Abilities for ${aspect.name}:\n`;
-
-  for (const tier in aspect.tierAbilities) {
-    const ab = aspect.tierAbilities[tier];
-    msg += `- ${ab.key} (Tier ${tier})\n`;
+// persistence
+export function saveGame() {
+  try {
+    const out = {
+      v: '2',
+      player: {
+        name: player.name,
+        tier: player.tier,
+        xp: player.xp,
+        health: player.health,
+        maxHealth: player.maxHealth,
+        essence: player.essence,
+        maxEssence: player.maxEssence,
+        stamina: player.stamina,
+        maxStamina: player.maxStamina,
+        baseDamageBonus: player.baseDamageBonus,
+        critChanceFlat: player.critChanceFlat,
+        critMultiplier: player.critMultiplier,
+        evasionFlat: player.evasionFlat,
+        aspect: player.aspect,
+        trueName: player.trueName,
+        inventory: player.inventory,
+        x: player.x,
+        y: player.y,
+        travelDistance: player.travelDistance,
+        trueNameAccumulatedChance: player.trueNameAccumulatedChance,
+        cooldowns: player.cooldowns,
+        zone: player.zone
+      },
+      ts: Date.now()
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(out));
+  } catch (err) {
+    // ignore
   }
+}
 
-  return msg;
+export function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || !data.player) return false;
+    const p = data.player;
+    player.name = p.name ?? player.name;
+    player.tier = p.tier ?? player.tier;
+    player.xp = p.xp ?? player.xp;
+    player.health = p.health ?? player.health;
+    player.maxHealth = p.maxHealth ?? player.maxHealth;
+    player.essence = p.essence ?? player.essence;
+    player.maxEssence = p.maxEssence ?? player.maxEssence;
+    player.stamina = p.stamina ?? player.stamina;
+    player.maxStamina = p.maxStamina ?? player.maxStamina;
+    player.baseDamageBonus = p.baseDamageBonus ?? player.baseDamageBonus;
+    player.critChanceFlat = p.critChanceFlat ?? player.critChanceFlat;
+    player.critMultiplier = p.critMultiplier ?? player.critMultiplier;
+    player.evasionFlat = p.evasionFlat ?? player.evasionFlat;
+    player.aspect = p.aspect ?? player.aspect;
+    player.trueName = p.trueName ?? player.trueName;
+    player.inventory = p.inventory ?? player.inventory;
+    player.x = p.x ?? player.x;
+    player.y = p.y ?? player.y;
+    player.travelDistance = p.travelDistance ?? player.travelDistance;
+    player.trueNameAccumulatedChance = p.trueNameAccumulatedChance ?? player.trueNameAccumulatedChance;
+    player.cooldowns = p.cooldowns ?? player.cooldowns;
+    player.zone = p.zone ?? player.zone;
+    updatePlayerStatsForTier(player.tier);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+export function clearSave() {
+  try {
+    localStorage.removeItem(SAVE_KEY);
+  } catch (e) {}
+  // reset memory state
+  player.tier = 0; player.xp = 0;
+  player.health = RANKS[0].hp; player.maxHealth = RANKS[0].hp;
+  player.essence = RANKS[0].essence; player.maxEssence = RANKS[0].essence;
+  player.stamina = RANKS[0].stamina; player.maxStamina = RANKS[0].stamina;
+  player.aspect = null;
+  player.trueName = null;
+  player.inventory = [];
+  player.x = 0; player.y = 0; player.travelDistance = 0;
+  player.trueNameAccumulatedChance = 0;
+  player.cooldowns = {};
+  player.zone = 'Wastes';
 }
